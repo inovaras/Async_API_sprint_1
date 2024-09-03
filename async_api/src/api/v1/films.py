@@ -5,6 +5,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 
+from models.film import Film
+from models.role import Role
+from models.genre import Genre
 from services.film import FilmService, get_film_service
 
 router = APIRouter()
@@ -14,11 +17,29 @@ class FilmDTO(BaseModel):
     id: str
     title: str
     imdb_rating: float | None
+    # genres: list[str] | None
+    directors: list[Role] | None
+    # actors: list[Role] | None
+    # writers: list[Role] | None
+
+
+class FilmDetailsDTO(BaseModel):
+    id: str
+    title: str
+    description: str | None
+    imdb_rating: float | None
+    genres: List[str] | None
+    directors: List[Role] | None
+    actors: List[Role] | None
+    writers: List[Role] | None
+    directors_names: List[str] | None
+    actors_names: List[str] | None
+    writers_names: List[str] | None
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{film_id}", response_model=FilmDTO)
-async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> FilmDTO:
+@router.get("/{film_id}", response_model=FilmDetailsDTO)
+async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> Film:
     film = await film_service.get_by_id(film_id)
     if not film:
         # Если фильм не найден, отдаём 404 статус
@@ -36,7 +57,6 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
     return film
 
 
-
 # Define a dependency function that returns the pagination parameters
 def get_pagination_params(
     # page must be greater than 0
@@ -49,20 +69,34 @@ def get_pagination_params(
 
 class OrderBy(str, Enum):
     """Поля разрешенные для сортировки."""
+
     imdb_rating = "imdb_rating"
 
 
 class FilterBy(str, Enum):
     """Поля разрешенные для фильтрации."""
+
     imdb_rating = "imdb_rating"
+    title = "title"
+    description = "description"
+    genres = "genres"
+    actors = "actors"
+    directors = "directors"
+    writers = "writers"
+
+
+class FilterBySearch(str, Enum):
+    """Поля разрешенные для фильтрации."""
+
     title = "title"
     description = "description"
 
 
 class SortQueryParams(BaseModel):
-    need_sort: bool = False
-    order_by: OrderBy = OrderBy.imdb_rating
-    descending: bool = True
+    # need_sort: bool = False
+    # order_by: OrderBy = OrderBy.imdb_rating
+    # descending: bool = True
+    sort_by: str | None = None
 
 
 class FilterQueryParams(BaseModel):
@@ -71,46 +105,130 @@ class FilterQueryParams(BaseModel):
     query: str | None = None
 
 
-@router.get("", response_model=List[FilmDTO])
+class FilterQueryParamsSearch(BaseModel):
+    filter_by: FilterBySearch = FilterBySearch.title
+    query: str
+
+
+@router.get("/search/", response_model=List[FilmDTO], description="Нечеткий поиск фильмов по заголовку или описанию.")
+async def search_by_films(
+    response: Response,
+    query: FilterQueryParamsSearch = Depends(),
+    pagination: dict = Depends(get_pagination_params),
+    film_service: FilmService = Depends(get_film_service),
+) -> List[FilmDTO]:
+
+    if query.filter_by in ["title", "description"]:
+        filters = []
+        words = query.query.split(" ")
+        for word in words:
+            filters.append(
+                {"fuzzy": {query.filter_by: {"value": word, "fuzziness": "AUTO"}}},
+            )
+        filter_query = {"bool": {"should": filters}}
+
+    page = pagination["page"]
+    per_page = pagination["per_page"]
+    offset = (page - 1) * per_page
+
+    films = await film_service.get_films(
+        index="movies",
+        per_page=per_page,
+        offset=offset,
+        sort=None,
+        films_filter=filter_query,
+    )
+
+    response.headers["x-total-count"] = str(len(films))
+    response.headers["x-page"] = str(page)
+    response.headers["x-per-page"] = str(per_page)
+
+    return films
+
+
+@router.get("", response_model=List[FilmDTO], description="Поиск фильмов с возможностью сортировки по рейтингу")
 async def get_films(
     response: Response,
     film_service: FilmService = Depends(get_film_service),
     pagination: dict = Depends(get_pagination_params),
     sort: SortQueryParams = Depends(),
     filter_: FilterQueryParams = Depends(),
-) -> List[FilmDTO]:
+) -> List[Film]:
     # Get the page and per_page values from the pagination dictionary
     page = pagination["page"]
     per_page = pagination["per_page"]
     offset = (page - 1) * per_page
 
+    filter_query = None
     filters = []
     if filter_.need_filter:
         if filter_.query:
-            if filter_.filter_by == "imdb_rating":  # FIXME hardcode
-                filter_.query = float(filter_.query)
-                filters = {"term": {filter_.filter_by: filter_.query}}
-            else:
-                words = filter_.query.split(" ")
-                for word in words:
-                    filters.append(
-                        {"fuzzy": {filter_.filter_by: {"value": word, "fuzziness": "AUTO"}}},
+            # INFO фильтрация по рейтингу
+            if filter_.filter_by == "imdb_rating":
+                if not filter_.query.isdigit():
+                    raise HTTPException(
+                        status_code=HTTPStatus.BAD_REQUEST, detail="Filter by imdb_rating must be int or float"
                     )
+                filter_.query = float(filter_.query)
+                filter_query = {"term": {filter_.filter_by: filter_.query}}
+            else:
+                # INFO поиск в List[str]
+                if filter_.filter_by == "genres":
+                    filter_query = {"match": {filter_.filter_by: filter_.query}}
+                    # filter_query = {"match": {"genres": "history"}}
+
+                # INFO поиск в списке по имени (Lucas == Luca). Search in List[{"id":1,"name":val}]
+                if filter_.filter_by in ["actors", "directors", "writers"]:
+                    filter_query = {
+                        "bool": {
+                            "must": [
+                                # {"match": {"title": "eggs"}},
+                                {
+                                    "nested": {
+                                        "path": filter_.filter_by,
+                                        "query": {
+                                            "bool": {
+                                                "must": [
+                                                    {"match": {f"{filter_.filter_by}.name": filter_.query}},
+                                                ]
+                                            }
+                                        },
+                                    }
+                                },
+                            ]
+                        }
+                    }
+                # INFO нечеткий поиск
+                if filter_.filter_by in ["title", "description"]:
+                    filters = []
+                    words = filter_.query.split(" ")
+                    for word in words:
+                        filters.append(
+                            {"fuzzy": {filter_.filter_by: {"value": word, "fuzziness": "AUTO"}}},
+                        )
+                    filter_query = {"bool": {"should": filters}}
+
+    # if genre:
+    #     # genre_model: Genre = await film_service._get_genre_from_elastic("b92ef010-5e4c-4fd0-99d6-41b6456272cd")
+    #     # if genre_model and filter_.need_filter:
+    #         #TODO filters = list or dict anytime
+    #         # filters.append({"term": {"genres": genre_model.name}})
+    #     filters.append({"term": {"genres": "fantasy"}})
 
     sort_queries = [{"_score": "desc"}]
-    if sort.need_sort:
-        if sort.descending == True:
-            sort.descending = "desc"
-        else:
-            sort.descending = "asc"
-        sort_queries.append({sort.order_by: sort.descending})
+    if sort.sort_by is not None:
+        if sort.sort_by == "-imdb_rating":
+            sort.sort_by = "desc"
+        elif sort.sort_by == "imdb_rating":
+            sort.sort_by = "asc"
+        sort_queries.append({"imdb_rating": sort.sort_by})
 
     films = await film_service.get_films(
         index="movies",
         per_page=per_page,
         offset=offset,
         sort=sort_queries,
-        films_filter=filters,
+        films_filter=filter_query,
     )
 
     # Send some extra information in the response headers

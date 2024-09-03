@@ -6,6 +6,8 @@ from db.redis import get_redis
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Depends
 from models.film import Film
+from models.genre import Genre
+from models.person import Person
 from redis.asyncio import Redis
 
 FILM_CACHE_EXPIRE_IN_SECONDS = 60 * 5  # 5 минут
@@ -18,8 +20,11 @@ class FilmService:
         self.redis = redis
         self.elastic = elastic
 
+
+
+
     async def get_films(
-        self, index: str, per_page: int, offset: int, sort: List[dict], films_filter: List[Dict[str, Any]] | None
+        self, index: str, per_page: int, offset: int, sort: List[dict] | None, films_filter: Dict[str, Any] | None
     ) -> List[Film]:
         """Получить список фильмов с пагинацией.
         Данная реализация ограничена 10000 результатов и страдает от глубокой пагинации.
@@ -35,14 +40,13 @@ class FilmService:
         Returns:
             list(Film): список фильмов.
         """
-
         # TODO add cache redis
         data = await self.elastic.search(
             index=index,
             size=per_page,
             from_=offset,
             sort=sort,
-            query={"bool": {"should": films_filter}},  # нечеткий поиск по нескольким словам
+            query=films_filter,  # нечеткий поиск по нескольким словам
         )
         films = []
         for doc in data.body["hits"]["hits"]:
@@ -110,6 +114,36 @@ class FilmService:
         # https://redis.io/commands/set/
         # pydantic позволяет сериализовать модель в json
         await self.redis.set(film.id, film.model_dump_json(), FILM_CACHE_EXPIRE_IN_SECONDS)
+
+    async def _get_genre_from_elastic(self, genre_id: str) -> Optional[Genre]:
+        """Получить один жанр из elasticsearch.
+
+        Args:
+            genre_id (str): id жанра.
+
+        Returns:
+            Optional[Genre]: вернет жанр или None.
+        """
+        try:
+            doc = await self.elastic.get(index="genres", id=genre_id)
+        except NotFoundError:
+            return None
+        return Genre(**doc["_source"])
+
+    async def _get_person_from_elastic(self, person_id: str) -> Optional[Person]:
+        """Получить одну персону из elasticsearch.
+
+        Args:
+            person_id (str): id персоны.
+
+        Returns:
+            Optional[Genre]: вернет персону или None.
+        """
+        try:
+            doc = await self.elastic.get(index="persons", id=person_id)
+        except NotFoundError:
+            return None
+        return Person(**doc["_source"])
 
 
 # TODO включить lru_cache() правильно, тк работает и без него
