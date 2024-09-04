@@ -17,6 +17,6 @@ class Film(BaseModel):
     directors_names: List[str] | None = Field()
     actors_names: List[str] | None = Field()
     writers_names: List[str] | None = Field()
-
-    # created_date
-    # film_link
+    # INFO отсутствует в индексе
+    created_date: str | None = Field(default=None)
+    film_link: str | None = Field(default=None)

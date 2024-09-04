@@ -3,42 +3,18 @@ from http import HTTPStatus
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
-
+from dto.dto import FilmDTO, FilmDetailsDTO
 from models.film import Film
-from models.role import Role
-from models.genre import Genre
+from pydantic import BaseModel
 from services.film import FilmService, get_film_service
 
 router = APIRouter()
 
 
-class FilmDTO(BaseModel):
-    id: str
-    title: str
-    imdb_rating: float | None
-    # genres: list[str] | None
-    directors: list[Role] | None
-    # actors: list[Role] | None
-    # writers: list[Role] | None
-
-
-class FilmDetailsDTO(BaseModel):
-    id: str
-    title: str
-    description: str | None
-    imdb_rating: float | None
-    genres: List[str] | None
-    directors: List[Role] | None
-    actors: List[Role] | None
-    writers: List[Role] | None
-    directors_names: List[str] | None
-    actors_names: List[str] | None
-    writers_names: List[str] | None
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{film_id}", response_model=FilmDetailsDTO)
+@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Вся информация по фильму.")
 async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> Film:
     film = await film_service.get_by_id(film_id)
     if not film:
@@ -93,9 +69,6 @@ class FilterBySearch(str, Enum):
 
 
 class SortQueryParams(BaseModel):
-    # need_sort: bool = False
-    # order_by: OrderBy = OrderBy.imdb_rating
-    # descending: bool = True
     sort_by: str | None = None
 
 
@@ -146,6 +119,7 @@ async def search_by_films(
     return films
 
 
+# @lru_cache()
 @router.get("", response_model=List[FilmDTO], description="Поиск фильмов с возможностью сортировки по рейтингу")
 async def get_films(
     response: Response,

@@ -20,9 +20,6 @@ class FilmService:
         self.redis = redis
         self.elastic = elastic
 
-
-
-
     async def get_films(
         self, index: str, per_page: int, offset: int, sort: List[dict] | None, films_filter: Dict[str, Any] | None
     ) -> List[Film]:
