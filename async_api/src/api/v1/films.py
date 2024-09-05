@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from models.genre import Genre
 from dto.dto import FilmDTO, FilmDetailsDTO
 from models.film import Film
 from pydantic import BaseModel
@@ -22,6 +23,13 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
         # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum    # Такой код будет более поддерживаемым
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
 
+    if film.genres:
+        genres: List[Genre] = []
+        for genre_name in film.genres:
+            genre: Genre| None = await film_service._get_genre_by_name_from_elastic(genre_name=genre_name)
+            if genre:
+                genres.append(genre)
+    film.genres = genres
     # Перекладываем данные из models.FilmDTO в FilmDTO
     # Обратите внимание, что у модели бизнес-логики есть поле description,
     # которое отсутствует в модели ответа API.
@@ -148,7 +156,11 @@ async def get_films(
             else:
                 # INFO поиск в List[str]
                 if filter_.filter_by == "genres":
-                    filter_query = {"match": {filter_.filter_by: filter_.query}}
+                    genre_model: Genre| None = await film_service._get_genre_from_elastic(genre_id=filter_.query)
+                    if genre_model and filter_.need_filter:
+                        filter_query ={"match": {filter_.filter_by: genre_model.name}}
+
+                    # filter_query = {"match": {filter_.filter_by: filter_.query}}
                     # filter_query = {"match": {"genres": "history"}}
 
                 # INFO поиск в списке по имени (Lucas == Luca). Search in List[{"id":1,"name":val}]

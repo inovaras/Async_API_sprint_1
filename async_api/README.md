@@ -24,3 +24,5 @@ film_link: str | None = Field(default=None)
 
 #TODO
 1) написать скрипт развертывания (создание сети, volumes)
+2) use admin-etl-process by python-alpine
+3) при изменении маппинга надо удалить данные в индексе и пересоздать индекс.
