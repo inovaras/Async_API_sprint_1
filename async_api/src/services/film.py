@@ -147,19 +147,19 @@ class FilmService:
         Returns:
             Optional[Genre]: вернет жанр или None.
         """
-        # try:
-        #     doc = await self.elastic.get(index="genres", id=genre_id)
-        # except NotFoundError:
-        #     return None
-        # return Genre(**doc["_source"])
-        data = await self.elastic.search(
-            index="genres",
-            query={"match": {"id": genre_id}},  # нечеткий поиск по нескольким словам
-        )
-        for doc in data.body["hits"]["hits"]:
-            if doc:
-                return Genre(**doc["_source"])
+        try:
+            doc = await self.elastic.get(index="genres", id=genre_id)
+        except NotFoundError:
             return None
+        return Genre(**doc["_source"])
+        # data = await self.elastic.search(
+        #     index="genres",
+        #     query={"match": {"id": genre_id}},  # нечеткий поиск по нескольким словам
+        # )
+        # for doc in data.body["hits"]["hits"]:
+        #     if doc:
+        #         return Genre(**doc["_source"])
+        #     return None
 
     async def _get_genre_by_name_from_elastic(self, genre_name: str) -> Optional[Genre]:
         """Получить один жанр из elasticsearch.
