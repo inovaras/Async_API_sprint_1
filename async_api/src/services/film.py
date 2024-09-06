@@ -112,9 +112,29 @@ class FilmService:
         # pydantic позволяет сериализовать модель в json
         await self.redis.set(film.id, film.model_dump_json(), FILM_CACHE_EXPIRE_IN_SECONDS)
 
+    async def _person_from_cache(self, person_id: str) -> Optional[Person]:
+        """Взять персону из кэша.
 
+        Args:
+            person (Person): id персоны.
 
+        Returns:
+            Optional[Person]: вернет персону или None.
+        """
+        data = await self.redis.get(person_id)
+        if not data:
+            return None
 
+        person = Person.model_validate_json(data)
+        return person
+
+    async def _put_person_to_cache(self, person: Person):
+        """Положить персону в кэш.
+
+        Args:
+            person (Person): id персоны.
+        """
+        await self.redis.set(person.id, person.model_dump_json(), FILM_CACHE_EXPIRE_IN_SECONDS)
 
     async def _get_genre_from_elastic(self, genre_id: str) -> Optional[Genre]:
         """Получить один жанр из elasticsearch.
@@ -134,7 +154,7 @@ class FilmService:
         # return Genre(**doc["_source"])
         data = await self.elastic.search(
             index="genres",
-            query={"match":{ "id": genre_id}},  # нечеткий поиск по нескольким словам
+            query={"match": {"id": genre_id}},  # нечеткий поиск по нескольким словам
         )
         for doc in data.body["hits"]["hits"]:
             if doc:
@@ -154,27 +174,22 @@ class FilmService:
         """
         data = await self.elastic.search(
             index="genres",
-            query={"match":{ "name": genre_name}},  # нечеткий поиск по нескольким словам
+            query={"match": {"name": genre_name}},  # нечеткий поиск по нескольким словам
         )
         for doc in data.body["hits"]["hits"]:
             if doc:
                 return Genre(**doc["_source"])
             return None
 
-    async def get_person_by_id(self, film_id: str) -> Optional[Person]:
-        # Пытаемся получить данные из кеша, потому что оно работает быстрее
-        # film = await self._film_from_cache(film_id)
-        # if not film:
-            # Если фильма нет в кеше, то ищем его в Elasticsearch
-        person = await self._get_person_from_elastic(film_id)
-            # if not film:
-                # Если он отсутствует в Elasticsearch, значит, фильма вообще нет в базе
-                # return None
-            # Сохраняем фильм в кеш
-            # await self._put_film_to_cache(film)
+    async def get_person_by_id(self, person_id: str) -> Optional[Person]:
+        person = await self._person_from_cache(person_id)
+        if not person:
+            person = await self._get_person_from_elastic(person_id)
+            if not person:
+                return None
+            await self._put_person_to_cache(person)
 
         return person
-
 
     async def _get_person_from_elastic(self, person_id: str) -> Optional[Person]:
         """Получить одну персону из elasticsearch.
@@ -183,7 +198,7 @@ class FilmService:
             person_id (str): id персоны.
 
         Returns:
-            Optional[Genre]: вернет персону или None.
+            Optional[Person]: вернет персону или None.
         """
         try:
             doc = await self.elastic.get(index="persons", id=person_id)
@@ -194,19 +209,19 @@ class FilmService:
     async def get_persons(
         self, index: str, per_page: int, offset: int, sort: List[dict] | None, persons_filter: Dict[str, Any] | None
     ) -> List[Person]:
-        """Получить список фильмов с пагинацией.
+        """Получить список персон с пагинацией.
         Данная реализация ограничена 10000 результатов и страдает от глубокой пагинации.
         См. статью ниже - в ней описаны различные варианты пагинации и проблемы связанные с ними.
         https://opster.com/guides/elasticsearch/how-tos/elasticsearch-pagination-techniques/
         Args:
-            index (str): индекс фильмов в elasticsearch.
+            index (str): индекс в elasticsearch.
             per_page (int): количество фильмов на страницу.
-            offset (int): сдиг фильмов при переходе на следующую страницу.
+            offset (int): сдиг при переходе на следующую страницу.
             sort (list(dict)): запрос сортировки в elastichsearch.
-            films_filter (List[Dict[str, Any]]): запрос фильтрации в elasticsearch.
+            persons_filter (List[Dict[str, Any]]): запрос фильтрации в elasticsearch.
 
         Returns:
-            list(Film): список фильмов.
+            list(Person): список персон.
         """
         # TODO add cache redis
         data = await self.elastic.search(
@@ -214,7 +229,7 @@ class FilmService:
             size=per_page,
             from_=offset,
             sort=sort,
-            query=persons_filter,  # нечеткий поиск по нескольким словам
+            query=persons_filter,
         )
         persons = []
         for doc in data.body["hits"]["hits"]:

@@ -4,51 +4,11 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
-from dto.dto import PersonDTO, PersonDetailsDTO
+from dto.dto import PersonDTO, PersonDetailsDTO, FilmDTO
 from services.film import FilmService, get_film_service
 
 router = APIRouter()
 
-
-class FilmDTO(BaseModel):
-    id: str
-    title: str
-    imdb_rating: float | None
-
-
-# @router.get("/search/", response_model=FilmDTO)
-
-
-# Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{person_id}", response_model=PersonDetailsDTO)
-async def person_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> PersonDetailsDTO:
-    person = await film_service.get_person_by_id(film_id)
-    if not person:
-        # Если фильм не найден, отдаём 404 статус
-        # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum    # Такой код будет более поддерживаемым
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
-
-    # TODO get films by id
-    dto = PersonDetailsDTO(uuid=person.id, full_name=person.full_name, films=[])
-
-    # for film_id in person.movies:
-    #     film = await film_service.get_by_id(film_id=film_id)
-    #     dto.films.append({"uuid": film.id, "roles": []})
-    #     for role in film.actors, :
-    #         if role.id == person.id:
-    #             dto.films[0].update({"roles": "actors"})
-    #     for role in film.directors:
-    #         if role.id == person.id:
-
-    #     for role in film.writers:
-    #         if role.id == person.id:
-
-    #     print()
-
-    return person
-
-
-@router.get("/{person_id}/film/", response_model=FilmDTO)
 
 # Define a dependency function that returns the pagination parameters
 def get_pagination_params(
@@ -86,57 +46,6 @@ class FilterQueryParams(BaseModel):
     query: str | None = None
 
 
-@router.get("", response_model=List[FilmDTO])
-async def get_films(
-    response: Response,
-    film_service: FilmService = Depends(get_film_service),
-    pagination: dict = Depends(get_pagination_params),
-    sort: SortQueryParams = Depends(),
-    filter_: FilterQueryParams = Depends(),
-) -> List[FilmDTO]:
-    # Get the page and per_page values from the pagination dictionary
-    page = pagination["page"]
-    per_page = pagination["per_page"]
-    offset = (page - 1) * per_page
-
-    filters = []
-    if filter_.need_filter:
-        if filter_.query:
-            if filter_.filter_by == "imdb_rating":  # FIXME hardcode
-                filter_.query = float(filter_.query)
-                filters = {"term": {filter_.filter_by: filter_.query}}
-            else:
-                words = filter_.query.split(" ")
-                for word in words:
-                    filters.append(
-                        {"fuzzy": {filter_.filter_by: {"value": word, "fuzziness": "AUTO"}}},
-                    )
-
-    sort_queries = [{"_score": "desc"}]
-    if sort.need_sort:
-        if sort.descending == True:
-            sort.descending = "desc"
-        else:
-            sort.descending = "asc"
-        sort_queries.append({sort.order_by: sort.descending})
-
-    films = await film_service.get_films(
-        index="movies",
-        per_page=per_page,
-        offset=offset,
-        sort=sort_queries,
-        films_filter=filters,
-    )
-
-    # Send some extra information in the response headers
-    # so the client can retrieve it as needed
-    response.headers["x-total-count"] = str(len(films))
-    response.headers["x-page"] = str(page)
-    response.headers["x-per-page"] = str(per_page)
-
-    return films
-
-
 class FilterBySearch(str, Enum):
     """Поля разрешенные для фильтрации."""
 
@@ -147,20 +56,38 @@ class FilterQueryParamsSearch(BaseModel):
     filter_by: FilterBySearch = FilterBySearch.full_name
     query: str
 
+# INFO CAHCED
+@router.get("/{person_id}", response_model=PersonDetailsDTO, description="Детальная информация по персоне.")
+async def person_details(person_id: str, film_service: FilmService = Depends(get_film_service)) -> PersonDetailsDTO:
+    person = await film_service.get_person_by_id(person_id)
+    if not person:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
 
-@router.get("/search/", response_model=List[PersonDTO], description="Нечеткий поиск персоналий по ФИО.")
+    dto = PersonDetailsDTO(id=person.id, full_name=person.full_name, films=[])
+    for i, film_id in enumerate(person.movies):
+        film = await film_service.get_by_id(film_id=film_id)
+        dto.films.append({"uuid": film.id, "roles": []})  # type: ignore
+        if dto.full_name in film.actors_names:  # type: ignore
+            dto.films[i]["roles"].append("actor")  # type: ignore
+        if dto.full_name in film.directors_names:  # type: ignore
+            dto.films[i]["roles"].append("director")  # type: ignore
+        if dto.full_name in film.writers_names:  # type: ignore
+            dto.films[i]["roles"].append("writer")  # type: ignore
+
+    return dto
+
+
+@router.get("/search/", response_model=List[PersonDetailsDTO], description="Точный фразовый поиск персон по ФИО.")
 async def search_by_persons(
     response: Response,
     query: FilterQueryParamsSearch = Depends(),
     pagination: dict = Depends(get_pagination_params),
     film_service: FilmService = Depends(get_film_service),
-) -> List[PersonDTO]:
+) -> List[PersonDetailsDTO]:
 
     if query.filter_by in ["full_name"]:
-        # filter_query = { "match_phrase": { "message": {"query":"George Lucas", "analyzer": "ru_en"} }}
-        filter_query = {"match": {"full_name": query.query}}
-        # filter_query = {"bool": {"should": [{"term": {"full_name": "George"}}, {"term": {"full_name": "Lucas"}}]}}
-
+        # filter_query = {"match": {"full_name": query.query}}
+        filter_query = {"match_phrase": {"full_name": {"query": query.query}}}
 
     page = pagination["page"]
     per_page = pagination["per_page"]
@@ -174,8 +101,58 @@ async def search_by_persons(
         persons_filter=filter_query,
     )
 
+    result: List[PersonDetailsDTO] = []
+    for person in persons:
+        dto = PersonDetailsDTO(id=person.id, full_name=person.full_name, films=[])
+        for i, film_id in enumerate(person.movies):
+            film = await film_service.get_by_id(film_id=film_id)
+            dto.films.append({"uuid": film.id, "roles": []})  # type: ignore
+            if dto.full_name in film.actors_names:  # type: ignore
+                dto.films[i]["roles"].append("actor")  # type: ignore
+            if dto.full_name in film.directors_names:  # type: ignore
+                dto.films[i]["roles"].append("director")  # type: ignore
+            if dto.full_name in film.writers_names:  # type: ignore
+                dto.films[i]["roles"].append("writer")  # type: ignore
+        result.append(dto)
+
     response.headers["x-total-count"] = str(len(persons))
     response.headers["x-page"] = str(page)
     response.headers["x-per-page"] = str(per_page)
 
-    return persons
+    return result
+
+
+@router.get("/{person_id}/film", response_model=List[FilmDTO], description="Фильмы, в которых участвовала персона.")
+async def person_films(
+    person_id: str,
+    response: Response,
+    film_service: FilmService = Depends(get_film_service),
+    pagination: dict = Depends(get_pagination_params),
+) -> List[FilmDTO]:
+    page = pagination["page"]
+    per_page = pagination["per_page"]
+    offset = (page - 1) * per_page
+
+    person = await film_service.get_person_by_id(person_id)
+    if not person:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
+
+    films_filter = {
+        "bool": {
+            "should": [
+                {"nested": {"path": "directors", "query": {"term": {"directors.id": person.id}}}},
+                {"nested": {"path": "writers", "query": {"term": {"writers.id": person.id}}}},
+                {"nested": {"path": "actors", "query": {"term": {"actors.id": person.id}}}},
+            ]
+        }
+    }
+
+    films = await film_service.get_films(
+        index="movies", per_page=per_page, offset=offset, sort=None, films_filter=films_filter
+    )
+
+    response.headers["x-total-count"] = str(len(films))
+    response.headers["x-page"] = str(page)
+    response.headers["x-per-page"] = str(per_page)
+
+    return films

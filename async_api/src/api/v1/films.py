@@ -12,35 +12,6 @@ from services.film import FilmService, get_film_service
 router = APIRouter()
 
 
-
-
-# Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Вся информация по фильму.")
-async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> Film:
-    film = await film_service.get_by_id(film_id)
-    if not film:
-        # Если фильм не найден, отдаём 404 статус
-        # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum    # Такой код будет более поддерживаемым
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
-
-    if film.genres:
-        genres: List[Genre] = []
-        for genre_name in film.genres:
-            genre: Genre| None = await film_service._get_genre_by_name_from_elastic(genre_name=genre_name)
-            if genre:
-                genres.append(genre)
-    film.genres = genres
-    # Перекладываем данные из models.FilmDTO в FilmDTO
-    # Обратите внимание, что у модели бизнес-логики есть поле description,
-    # которое отсутствует в модели ответа API.
-    # Если бы использовалась общая модель для бизнес-логики и формирования ответов API,
-    # вы бы предоставляли клиентам данные, которые им не нужны
-    # и, возможно, данные, которые опасно возвращать
-    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating, actors=film.actors)
-    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating)
-    return film
-
-
 # Define a dependency function that returns the pagination parameters
 def get_pagination_params(
     # page must be greater than 0
@@ -89,6 +60,33 @@ class FilterQueryParams(BaseModel):
 class FilterQueryParamsSearch(BaseModel):
     filter_by: FilterBySearch = FilterBySearch.title
     query: str
+
+
+# Внедряем FilmService с помощью Depends(get_film_service)
+@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Детальная информация по фильму.")
+async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> Film:
+    film = await film_service.get_by_id(film_id)
+    if not film:
+        # Если фильм не найден, отдаём 404 статус
+        # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum    # Такой код будет более поддерживаемым
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
+
+    if film.genres:
+        genres: List[Genre] = []
+        for genre_name in film.genres:
+            genre: Genre | None = await film_service._get_genre_by_name_from_elastic(genre_name=genre_name)
+            if genre:
+                genres.append(genre)
+    film.genres = genres
+    # Перекладываем данные из models.FilmDTO в FilmDTO
+    # Обратите внимание, что у модели бизнес-логики есть поле description,
+    # которое отсутствует в модели ответа API.
+    # Если бы использовалась общая модель для бизнес-логики и формирования ответов API,
+    # вы бы предоставляли клиентам данные, которые им не нужны
+    # и, возможно, данные, которые опасно возвращать
+    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating, actors=film.actors)
+    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating)
+    return film
 
 
 @router.get("/search/", response_model=List[FilmDTO], description="Нечеткий поиск фильмов по заголовку или описанию.")
@@ -156,14 +154,11 @@ async def get_films(
             else:
                 # INFO поиск в List[str]
                 if filter_.filter_by == "genres":
-                    genre_model: Genre| None = await film_service._get_genre_from_elastic(genre_id=filter_.query)
+                    genre_model: Genre | None = await film_service._get_genre_from_elastic(genre_id=filter_.query)
                     if genre_model and filter_.need_filter:
-                        filter_query ={"match": {filter_.filter_by: genre_model.name}}
+                        filter_query = {"match": {filter_.filter_by: genre_model.name}}
 
-                    # filter_query = {"match": {filter_.filter_by: filter_.query}}
-                    # filter_query = {"match": {"genres": "history"}}
-
-                # INFO поиск в списке по имени (Lucas == Luca). Search in List[{"id":1,"name":val}]
+                # INFO поиск в списке по имени
                 if filter_.filter_by in ["actors", "directors", "writers"]:
                     filter_query = {
                         "bool": {
@@ -175,7 +170,12 @@ async def get_films(
                                         "query": {
                                             "bool": {
                                                 "must": [
-                                                    {"match": {f"{filter_.filter_by}.name": filter_.query}},
+                                                    # {"match": {f"{filter_.filter_by}.name": filter_.query}},
+                                                    {
+                                                        "match_phrase": {
+                                                            f"{filter_.filter_by}.name": {"query": filter_.query}
+                                                        }
+                                                    }
                                                 ]
                                             }
                                         },
@@ -193,13 +193,6 @@ async def get_films(
                             {"fuzzy": {filter_.filter_by: {"value": word, "fuzziness": "AUTO"}}},
                         )
                     filter_query = {"bool": {"should": filters}}
-
-    # if genre:
-    #     # genre_model: Genre = await film_service._get_genre_from_elastic("b92ef010-5e4c-4fd0-99d6-41b6456272cd")
-    #     # if genre_model and filter_.need_filter:
-    #         #TODO filters = list or dict anytime
-    #         # filters.append({"term": {"genres": genre_model.name}})
-    #     filters.append({"term": {"genres": "fantasy"}})
 
     sort_queries = [{"_score": "desc"}]
     if sort.sort_by is not None:

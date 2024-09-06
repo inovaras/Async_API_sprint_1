@@ -30,12 +30,14 @@ class FilmDetailsDTO(BaseModel):
     film_link: str | None
 
 
+# TODO удалить, нигде не используется
 class PersonDTO(BaseModel):
     id: str
     full_name: str
-    # films: List[Dict[str, List[Role]]]
+    # films: List[Dict[str, str | List[str]]]
+
 
 class PersonDetailsDTO(BaseModel):
     id: str
     full_name: str
-    films: List[Dict[str, List[Role]]] | None
+    films: List[Dict[str, str | List[str]]]

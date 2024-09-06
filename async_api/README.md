@@ -26,3 +26,25 @@ film_link: str | None = Field(default=None)
 1) написать скрипт развертывания (создание сети, volumes)
 2) use admin-etl-process by python-alpine
 3) при изменении маппинга надо удалить данные в индексе и пересоздать индекс.
+
+match
+https://www.mo4tech.com/elasticsearch-use-boolean-queries-to-improve-search-relevance.html
+
+OR, AND, NOT
+https://stackoverflow.com/questions/28538760/elasticsearch-bool-query-combine-must-with-or
+
+
+Найти id в одном из списков. ```should == OR```, ```path:название списка```,<br>
+```term == точное соответствие```.<br>
+```{"directors.id": person.id} == key:value```<br>
+```python
+{
+"bool": {
+    "should": [
+        {"nested": {"path": "directors", "query": {"term": {"directors.id": person.id}}}},
+        {"nested": {"path": "writers", "query": {"term": {"writers.id": person.id}}}},
+        {"nested": {"path": "actors", "query": {"term": {"actors.id": person.id}}}},
+    ]
+    }
+}
+```
