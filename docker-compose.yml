@@ -2,6 +2,7 @@ services:
   service:
     image: inovaras/admin-app
     restart: always
+    pull_policy: always
     container_name: service
     env_file:
       - ./configs/.env
@@ -93,6 +94,7 @@ services:
   admin-etl-process:
     image: inovaras/admin-etl
     restart: always
+    pull_policy: always
     container_name: admin-etl-process
     env_file:
       - ./configs/.env
