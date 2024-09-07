@@ -34,3 +34,9 @@ class PersonDetailsDTO(BaseModel):
     id: str
     full_name: str
     films: List[Dict[str, str | List[str]]]
+
+
+class GenreDTO(BaseModel):
+    id: str
+    name: str
+
