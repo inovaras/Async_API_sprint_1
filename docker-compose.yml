@@ -1,0 +1,146 @@
+services:
+  service:
+    image: inovaras/admin-app
+    restart: always
+    pull_policy: always
+    container_name: admin-app
+    env_file:
+      - ./configs/.env
+    volumes:
+      - admin-static:/var/www/static
+      - admin-media:/var/www/media
+    expose:
+      - "8000"
+    depends_on:
+      theatre-db:
+        condition: service_healthy
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.2
+
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    container_name: nginx
+    volumes:
+      - admin-static:/var/www/static
+      - admin-media:/var/www/media
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./configs:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - service
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.3
+
+  theatre-db:
+    image: postgres:16-alpine
+    restart: always
+    container_name: theatre-db
+    env_file:
+      - ./configs/.env
+    volumes:
+      - theatre-db-data:/var/lib/postgresql/data
+      - ./database_dump.sql:/docker-entrypoint-initdb.d/init.sql
+    expose:
+      - "5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.4
+
+  elasticsearch:
+    image: elasticsearch:8.6.2
+    restart: always
+    container_name: elasticsearch
+    env_file:
+      - ./configs/.env
+    environment:
+      - ES_JAVA_OPTS=-Xms200m -Xmx500m
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    expose:
+      - "9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.5
+
+
+  redis:
+    image: redis:7.4.0-alpine
+    container_name: redis-cache
+    restart: always
+    volumes:
+      - redis-cache:/data
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.6
+
+
+  admin-etl-process:
+    image: inovaras/admin-etl
+    restart: always
+    pull_policy: always
+    container_name: admin-etl-process
+    env_file:
+      - ./configs/.env
+    depends_on:
+      theatre-db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.7
+
+  async-api:
+    image: inovaras/async-api
+    restart: always
+    container_name: async-api
+    env_file:
+      - ./configs/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - admin-etl-process
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.8
+
+
+volumes:
+  theatre-db-data:
+    external: true
+  elasticsearch-data:
+    external: true
+  admin-static:
+    external: true
+  admin-media:
+    external: true
+  redis-cache:
+    external: true
+
+
+networks:
+  middle-practicum:
+    external: True
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/24
+          gateway: 172.18.0.1
