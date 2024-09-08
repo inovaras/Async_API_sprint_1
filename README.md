@@ -24,6 +24,10 @@
 ```bash
 git clone git@github.com:NankuF/Async_API_sprint_1.git && cd ./Async_API_sprint_1
 ```
+Переименовать `.env.example` в `.env`
+```bash
+cp ./configs/.env.example ./configs/.env
+```
 В директории с репозиторием выполнить скрипт, разворачивающий сеть и volumes.
 ```bash
 docker compose down &&\
@@ -39,10 +43,6 @@ docker volume create elasticsearch-data &&\
 docker volume create redis-cache &&\
 docker volume create admin-static &&\
 docker volume create admin-media
-```
-Переименовать `.env.example` в `.env`
-```bash
-cp ./configs/.env.example ./configs/.env
 ```
 
 *Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`*
@@ -82,7 +82,8 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
     image: inovaras/admin-etl
 ```
 
-API доступно по адресу: http://127.0.0.1:8000/api/openapi#/<br>
+API из докера доступно по адресу: http://127.0.0.1:8080/api/openapi#/<br>
+API при запуске в IDE доступно по адресу: http://127.0.0.1:8000/api/openapi#/<br>
 Админ-панель доступна по адресу: http://127.0.0.1/admin/<br>
 Login: `admin`<br>
 Password: `123123`<br>
@@ -91,21 +92,21 @@ Password: `123123`<br>
 1) Выполнить "Требования перед  установкой".
 2) Открыть API
 ```text
-http://127.0.0.1:8000/api/openapi#/
+http://127.0.0.1:8080/api/openapi#/
 ```
 
 ## Запуск локально для разработки проекта
+*Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`*
 1) Выполнить "Требования перед  установкой".
-2) *Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`*
-3) Установить виртуальное окружение и зависимости.
+2) Установить виртуальное окружение и зависимости.
 ```bash
-python3 -m venv venv && . ./venv/bin/activate && pip install -r requirements.txt
+python3 -m venv venv && . ./venv/bin/activate && pip install -r requirements.txt && cd async_api/src/
 ```
-4) Запустить приложение
+3) Запустить приложение
 ```bash
 fastapi dev main.py
 ```
-1) Открыть API
+4) Открыть API
 ```text
 http://127.0.0.1:8000/api/openapi#/
 ```
@@ -153,10 +154,10 @@ http://127.0.0.1:8000/api/openapi#/
 **Важно! Параметры сортировки, пагинации и поиска(фильтрации) должны быть указаны в составном ключе, иначе запрос кешируется и данные отображаются неверно.**<br>
 
 ## Elasticsearch
-Запросы к elasticsearch в ```services.film.py``` и ```api.v1.*.py```.
+Запросы к elasticsearch в ```services.film.py``` и ```api.v1.*.py```.<br>
 Данные собираются из elasticsearch при помощи поисковых запросов.<br>
 **Примеры:**<br>
-Запрос для поиска id в любом из трех `List[dict]`. Используется в `person_films` для поиска роли по `uuid` в `directors`
+Запрос для поиска id в любом из трех `List[dict]`. Используется в `person_films` для поиска роли по `uuid` в `directors`,
 `writers` и `actors`.<br>
 `should` - эквивалент OR.<br>
 `path` - ключ в котором elastic хранит данные.<br>
@@ -198,7 +199,7 @@ filter_query = {"bool": {"should": filters}}
             }}}
 ```
 
-Фразовый поиск внутри `List[dict]`. Используется в `get_films` для поиска по полю `name` в `directors`
+Фразовый поиск внутри `List[dict]`. Используется в `get_films` для поиска по полю `name` в `directors`,
 `writers` и `actors`.<br>
 ```python
 {"bool": {"must": [
