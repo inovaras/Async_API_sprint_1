@@ -10,12 +10,12 @@
 
 **От каждого разработчика ожидается выполнение минимум 40% от общего числа стори поинтов в спринте.**
 
+# Ревьюеру - [Ссылка на приватный репозиторий](https://github.com/NankuF/Async_API_sprint_1)
 
-# Асинхронный API с кэшированием и поиском в Elasticsearch
-Кэширование находится в ```services.film.py```.<br>
-Запросы к elasticsearch в ```services.film.py``` и ```api.v1.*.py```.
+# Readonly асинхронный API с кэшированием и поиском в Elasticsearch
 
-## Требования перед установкой
+
+## Требования перед  установкой
 1) Linux (проект разработан на Ubuntu 22.04.4 LTS)
 2) python >= 3.10
 3) Docker
@@ -24,28 +24,7 @@
 ```bash
 git clone git@github.com:NankuF/Async_API_sprint_1.git && cd ./Async_API_sprint_1
 ```
-Установить виртуальное окружение и зависимости.
-```bash
-python3 -m venv venv && . ./venv/bin/activate && pip install -r requirements.txt
-```
-
-## Установка
-Проект разворачивается через docker compose.<br>
-Используется сеть со статичными адресами для устранения проблемы смены ip адресов при перезапуске контейнеров.<br>
-Используются созданные вручную контейнеры для предотвращения потери данных.<br>
-
-В проекте используется код из ранее выполненных спринтов, спринты загружены в виде образов на docker hub.
-[Админка](https://github.com/NankuF/new_admin_panel_sprint_2)
-```yaml
-  service:
-    image: inovaras/admin-app
-```
-[ETL процесс](https://github.com/NankuF/new_admin_panel_sprint_3) обновления данных из postgresql в elasticsearch при внесении изменений через админку.
-```yaml
-  admin-etl-process:
-    image: inovaras/admin-etl
-```
-Перед установкой необходимо перейти в директорию с репозиторием и выполнить скрипт, разворачивающий сеть и volumes.
+В директории с репозиторием выполнить скрипт, разворачивающий сеть и volumes.
 ```bash
 docker compose down &&\
 docker volume rm theatre-db-data &&\
@@ -63,9 +42,12 @@ docker volume create admin-media
 ```
 Переименовать `.env.example` в `.env`
 ```bash
-mv .env.example .env
+cp ./configs/.env.example ./configs/.env
 ```
-Запустить docker compose (docker-compose.yml должен находиться в этой же директории)
+
+*Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`*
+
+Запустить docker compose (`docker-compose.yml` должен находиться в этой же директории)
 ```bash
 docker compose up -d --build
 ```
@@ -73,7 +55,7 @@ docker compose up -d --build
 ```bash
 curl -XGET http://172.18.0.5:9200/_cat/indices?v
 ```
-В колонке docs.count указано кол-во документов пересенных ETL-процессом.
+В колонке `docs.count` указано кол-во документов пересенных ETL-процессом.
 ```text
 health status index   uuid                   pri rep docs.count docs.deleted store.size pri.store.size
 yellow open   movies  FJsV8_apRj6sOfOMCVJ_XQ   1   1       6782            0      1.5mb          1.5mb
@@ -81,11 +63,49 @@ yellow open   persons SwhRqmCmSTOmhfD2uwAEyA   1   1       4166            0    
 yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0      9.7kb          9.7kb
 
 ```
-Запустить приложение
+
+## Общее
+Проект разворачивается через docker compose.<br>
+*Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`.*<br>
+Используется сеть со статичными адресами для устранения проблемы смены ip адресов при перезапуске контейнеров.<br>
+Используются созданные вручную контейнеры для предотвращения потери данных.<br>
+
+В проекте используется код из ранее выполненных спринтов, спринты загружены в виде образов на docker hub.<br>
+[Админка](https://github.com/NankuF/new_admin_panel_sprint_2)
+```yaml
+  service:
+    image: inovaras/admin-app
+```
+[ETL процесс](https://github.com/NankuF/new_admin_panel_sprint_3) обновления данных из postgres в elasticsearch при внесении изменений через админку.
+```yaml
+  admin-etl-process:
+    image: inovaras/admin-etl
+```
+
+API доступно по адресу: http://127.0.0.1:8000/api/openapi#/<br>
+Админ-панель доступна по адресу: http://127.0.0.1/admin/<br>
+Login: `admin`<br>
+Password: `123123`<br>
+
+## Запуск в Docker
+1) Выполнить "Требования перед  установкой".
+2) Открыть API
+```text
+http://127.0.0.1:8000/api/openapi#/
+```
+
+## Запуск локально для разработки проекта
+1) Выполнить "Требования перед  установкой".
+2) *Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`*
+3) Установить виртуальное окружение и зависимости.
+```bash
+python3 -m venv venv && . ./venv/bin/activate && pip install -r requirements.txt
+```
+4) Запустить приложение
 ```bash
 fastapi dev main.py
 ```
-Открыть приложение перейдя по адресу
+1) Открыть API
 ```text
 http://127.0.0.1:8000/api/openapi#/
 ```
@@ -93,12 +113,13 @@ http://127.0.0.1:8000/api/openapi#/
 ## Ожидаемое поведение
 - API собрано по [ТЗ](https://practicum.yandex.ru/learn/middle-python/courses/7c4e333e-2395-4f53-88af-256bc6aab346/sprints/231500/topics/7ee9e96e-c2e8-4a7b-9b5c-b626a91aa234/lessons/3d52a604-2fcd-4593-8f4b-065e8cb6af75/)
 - Все эндпоинты кешируются по uuid, либо по составному ключу.
-   - По uuid кэшируются запросы для одного объекта(персона, фильм, жанр)
+   - По uuid кэшируются запросы для одного объекта(персона, фильм, жанр).
    - По составному ключу кэшируются запросы для получения списка объектов.<br>
    - Поиск сначала производится в кэше, затем в elasticsearch. Ответ возвращается в API.<br>
 Шаблон составного ключа cмотри в разделе Redis.<br>
 **Важно! Параметры сортировки, пагинации и поиска(фильтрации) должны быть указаны в составном ключе, иначе запрос кешируется и данные отображаются неверно.**<br>
 ## Redis
+Кэширование находится в ```services.film.py```.<br>
 Кэширование проверяется до запроса в elasticsearch.<br>
 Кэш записывается после запроса в elasticsearch.<br>
 Срок жизни кэша указан в `.env`:<br>
@@ -132,9 +153,10 @@ http://127.0.0.1:8000/api/openapi#/
 **Важно! Параметры сортировки, пагинации и поиска(фильтрации) должны быть указаны в составном ключе, иначе запрос кешируется и данные отображаются неверно.**<br>
 
 ## Elasticsearch
+Запросы к elasticsearch в ```services.film.py``` и ```api.v1.*.py```.
 Данные собираются из elasticsearch при помощи поисковых запросов.<br>
-Примеры:<br>
-Запрос для поиска id в любом из трех `List[str]`. Используется в `person_films` для поиска роли по `uuid` в `directors`
+**Примеры:**<br>
+Запрос для поиска id в любом из трех `List[dict]`. Используется в `person_films` для поиска роли по `uuid` в `directors`
 `writers` и `actors`.<br>
 `should` - эквивалент OR.<br>
 `path` - ключ в котором elastic хранит данные.<br>
@@ -157,7 +179,7 @@ http://127.0.0.1:8000/api/openapi#/
 Нечеткий поиск по нескольким словам (нечеткий поиск - когда разрешено делать опечатки в словах).
 Используется в `search_by_films` для поиска по `title` и `description`.<br>
 В примере найдет все слова похожие на George и Lucas. (не фразовый поиск, а поиск отдельно по каждому слову)<br>
-**Возможно запрос нечеткого поиска можно упростить - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**
+**Возможно запрос нечеткого поиска можно упростить - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**.
 ```python
 filters = []
 words = "Geoge Lucs".split(" ")
@@ -167,7 +189,7 @@ for word in words:
     )
 filter_query = {"bool": {"should": filters}}
 ```
-Упростить вот так (требует проверки)
+**Упростить вот так (требует проверки)**
 ```python
 {"match": {
     "text_field": {
@@ -176,7 +198,7 @@ filter_query = {"bool": {"should": filters}}
             }}}
 ```
 
-Фразовый поиск внутри `List[str]`. Используется в `get_films` для поиска по полю `name` в `directors`
+Фразовый поиск внутри `List[dict]`. Используется в `get_films` для поиска по полю `name` в `directors`
 `writers` и `actors`.<br>
 ```python
 {"bool": {"must": [
@@ -186,11 +208,11 @@ filter_query = {"bool": {"should": filters}}
 ```
 
 ### should, must, must not, filter в поисковых запросах
-[Ссылка на урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)
-`must` — возвращённые данные обязательно должны соответствовать правилу, которое описано в этом ключе.
-`must_not` — возвращённые данные не должны соответствовать правилу, описанному в этом ключе.
-`filter` — похож на must, но с одним отличием. Найденные с помощью этих правил совпадения не будут участвовать в расчёте релевантности.
-`should` — возвращаемые данные обязательно должны соответствовать хотя бы одному правилу, которое описано в этом ключе. Он работает как ИЛИ для всех описанных внутри ключа правил.
+[Ссылка на урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)<br>
+`must` — возвращённые данные обязательно должны соответствовать правилу, которое описано в этом ключе.<br>
+`must_not` — возвращённые данные не должны соответствовать правилу, описанному в этом ключе.<br>
+`filter` — похож на must, но с одним отличием. Найденные с помощью этих правил совпадения не будут участвовать в расчёте релевантности.<br>
+`should` — возвращаемые данные обязательно должны соответствовать хотя бы одному правилу, которое описано в этом ключе. Он работает как ИЛИ для всех описанных внутри ключа правил.<br>
 
 ### Нюансы маппинга индекса
 В примерах используется индекс `movies`.<br>
@@ -215,36 +237,88 @@ filter_query = {"bool": {"should": filters}}
       "writers_names": {
         "type": "text",
         "analyzer": "ru_en"
-      },
+      }
 ```
 `genres` - List[str]
 ```python
       "genres": {"type":"text"} // поиск по всем словам, т.е подстроки в строке.
 ```
-id - str (uuid)
+`id` - str (uuid)
 ```python
-    "id": {"type": "keyword"}, // поиск по одному слову, т.е либо найдет весь uuid, либо нет.
+    "id": {"type": "keyword"} // поиск по одному слову, т.е либо найдет весь uuid, либо нет.
 ```
-imdb_rating - float
+`imdb_rating` - float
 ```python
-"imdb_rating": {"type": "float"},
+"imdb_rating": {"type": "float"}
+```
+`title` - str, содержит еще одно поле — title.raw. Оно нужно, чтобы у Elasticsearch была возможность делать сортировку, так как он не умеет сортировать данные по типу text.
+```python
+"title": {
+    "type": "text",
+    "analyzer": "ru_en",
+    "fields": {
+        "raw": {"type": "keyword"}
+    }
+}
 ```
 
 ### Запросы к Elasticsearch через curl
-Получить 1 документ - genre
+Посмотреть маппинг
+```bash
+curl -XGET http://172.18.0.5:9200/_mappings?pretty
+```
+Удалить индекс `movies`
+```bash
+curl -XDELETE http://172.18.0.5:9200/movies/
+```
+Получить документ по `id` из индекса `genre`
 ```bash
 curl -XGET http://172.18.0.5:9200/genres/_doc/3d8d9bf5-0d90-4353-88ba-4ccc5d2c07ff
 ```
+Поиск по индексу `persons`
+```bash
+curl -XGET http://172.18.0.5:9200/persons/_search -H 'Content-Type: application/json' -d'
+{
+    "query": {
+        "term": {
+            "id": {
+                "value": "26e83050-29ef-4163-a99d-b546cac208f8"
+            }
+        }
+    }
+}'
+```
+Мультипоиск по определенным полям + неточный поиск.
+```bash
+curl -XGET http://172.18.0.5:9200/movies/_search?pretty -H 'Content-Type: application/json' -d'
+{
+    "query": {
+        "multi_match": {
+            "query": "camp",
+            "fuzziness": "auto",
+            "fields": [
+                "actors_names",
+                "writers_names",
+                "title",
+                "description",
+                "genres"
+            ]
+        }
+    }
+}'
+```
+`type:keyword` - регистрозависимый.<br>
+`type:text`- регистронезависимый.<br>
 
-
-### Ссылки
+## Ссылки
 **Elasticsearch**<br>
 [Поиск по List](https://www.elastic.co/guide/en/elasticsearch/guide/master/nested-query.html)<br>
-[Снова вложенный запрос](https://opster.com/guides/elasticsearch/search-apis/elasticsearch-query-nested/)
+[Снова вложенный запрос](https://opster.com/guides/elasticsearch/search-apis/elasticsearch-query-nested/)<br>
 [Нечеткий поиск](https://www.geeksforgeeks.org/fuzzy-matching-in-elasticsearch/)<br>
 [Настройки нечеткого поиска](https://opster.com/guides/elasticsearch/search-apis/elasticsearch-fuzzy-query/#Customizing-Fuzziness)<br>
 [Операторы OR, AND, NOT - should, must, must not](https://opster.com/guides/elasticsearch/search-apis/elasticsearch-and-and-or-operators/#Using-the-OR-Operator-in-Elasticsearch)<br>
 [Снова OR, AND, NOT](https://stackoverflow.com/questions/28538760/elasticsearch-bool-query-combine-must-with-or)<br>
-[match](https://www.mo4tech.com/elasticsearch-use-boolean-queries-to-improve-search-relevance.html)<br>
+[Описание match](https://www.mo4tech.com/elasticsearch-use-boolean-queries-to-improve-search-relevance.html)<br>
 **Redis**<br>
 [Учебник Redis](https://python-scripts.com/redis)<br>
+[Теория кэширования](https://rutube.ru/video/86f8ec983f010f25af80f8af211f53f8/)
