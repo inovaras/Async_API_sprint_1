@@ -1,6 +1,8 @@
 from enum import Enum
-from pydantic import BaseModel
+from typing import List, Optional
+
 from fastapi import Query
+from pydantic import BaseModel
 
 
 def get_pagination_params(
@@ -77,16 +79,12 @@ class FilmsFilterQueryParamsSearch(BaseModel):
     query: str
 
 
-def template_cache_key(pagination, sort_queries, filter_query, filter_, func_name: str) -> str:
-    page = pagination["page"]
-    per_page = pagination["per_page"]
-    pagination_query = f"{page}_{per_page}"
+def template_cache_key(*, pagination: dict, func_name: str, sort_queries: Optional[List[dict]]=None, filter_query: Optional[dict]=None, filter_: Optional[dict]=None) -> str:
+    pagination_query = f"{pagination["page"]}_{pagination["per_page"]}"
+    template = f"{func_name}_{pagination_query}"
 
     if sort_queries:
-        pagination_query = f"{pagination['page']}_{pagination['per_page']}"
         template = f"{func_name}_{pagination_query}_{sort_queries}"
-    else:
-        template = f"{func_name}_{pagination_query}"
 
     if filter_query:
         template = f"{template}_{filter_.filter_by}_{filter_.query}"

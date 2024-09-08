@@ -3,7 +3,7 @@ services:
     image: inovaras/admin-app
     restart: always
     pull_policy: always
-    container_name: service
+    container_name: admin-app
     env_file:
       - ./configs/.env
     volumes:
@@ -109,9 +109,12 @@ services:
 
   async-api:
     build: .
-    volumes:
-      - redis-cache:/data
-      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: always
+    container_name: async-api
+    env_file:
+      - ./configs/.env
+    ports:
+      - "8080:8080"
     depends_on:
       - admin-etl-process
     networks:

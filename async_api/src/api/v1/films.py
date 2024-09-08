@@ -9,14 +9,26 @@ from services.film import FilmService, get_film_service
 from core import config
 import inspect
 
-from utils.utils import get_pagination_params, FilmsSortQueryParams, FilmsFilterQueryParams, FilmsFilterQueryParamsSearch, template_cache_key
+from utils.utils import (
+    get_pagination_params,
+    FilmsSortQueryParams,
+    FilmsFilterQueryParams,
+    FilmsFilterQueryParamsSearch,
+    template_cache_key,
+)
 
 router = APIRouter()
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Детальная информация по фильму.")
-async def film_details(film_id: str, film_service: FilmService = Depends(get_film_service)) -> Film:
+@router.get(
+    "/{film_id}",
+    response_model=FilmDetailsDTO,
+    description="Детальная информация по фильму.",
+)
+async def film_details(
+    film_id: str, film_service: FilmService = Depends(get_film_service)
+) -> Film:
     film = await film_service.get_film_by_id(film_id)
     if not film:
         # Если фильм не найден, отдаём 404 статус
@@ -26,7 +38,9 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
     if film.genres:
         genres: List[Genre] = []
         for genre_name in film.genres:
-            genre: Genre | None = await film_service.get_genre_by_name(genre_name=genre_name)
+            genre: Genre | None = await film_service.get_genre_by_name(
+                genre_name=genre_name
+            )
             if genre:
                 genres.append(genre)
     film.genres = genres
@@ -41,7 +55,11 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
     return film
 
 
-@router.get("/search/", response_model=List[FilmDTO], description="Нечеткий поиск фильмов по заголовку или описанию.")
+@router.get(
+    "/search/",
+    response_model=List[FilmDTO],
+    description="Нечеткий поиск фильмов по заголовку или описанию.",
+)
 async def search_by_films(
     response: Response,
     query: FilmsFilterQueryParamsSearch = Depends(),
@@ -52,7 +70,8 @@ async def search_by_films(
     per_page = pagination["per_page"]
     offset = (page - 1) * per_page
     func_name = inspect.currentframe().f_code.co_name
-    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=None, filter_=None, func_name=func_name )
+
+    filter_query = None
 
     if query.filter_by in ["title", "description"]:
         filters = []
@@ -62,6 +81,13 @@ async def search_by_films(
                 {"fuzzy": {query.filter_by: {"value": word, "fuzziness": "AUTO"}}},
             )
         filter_query = {"bool": {"should": filters}}
+
+    template = template_cache_key(
+        pagination=pagination,
+        filter_query=filter_query,
+        filter_=query,
+        func_name=func_name,
+    )
 
     films = await film_service.get_objects(
         index="movies",
@@ -81,7 +107,11 @@ async def search_by_films(
     return films
 
 
-@router.get("", response_model=List[FilmDTO], description="Поиск фильмов с возможностью сортировки по рейтингу")
+@router.get(
+    "",
+    response_model=List[FilmDTO],
+    description="Поиск фильмов с возможностью сортировки по рейтингу",
+)
 async def get_films(
     response: Response,
     film_service: FilmService = Depends(get_film_service),
@@ -101,15 +131,16 @@ async def get_films(
             if filter_.filter_by == "imdb_rating":
                 if not filter_.query.isdigit():
                     raise HTTPException(
-                        status_code=HTTPStatus.BAD_REQUEST, detail="Filter by imdb_rating must be int or float"
+                        status_code=HTTPStatus.BAD_REQUEST,
+                        detail="Filter by imdb_rating must be int or float",
                     )
                 filter_.query = float(filter_.query)
                 filter_query = {"term": {filter_.filter_by: filter_.query}}
             else:
                 # INFO поиск в List[str]
                 if filter_.filter_by == "genres":
-                    genre_model: Genre | None = await film_service._get_from_elastic(
-                        id_=filter_.query, index="genres", model=Genre
+                    genre_model: Genre | None = await film_service.get_genre_by_name(
+                        genre_name=filter_.query
                     )
                     if genre_model and filter_.need_filter:
                         filter_query = {"match": {filter_.filter_by: genre_model.name}}
@@ -129,7 +160,9 @@ async def get_films(
                                                     # {"match": {f"{filter_.filter_by}.name": filter_.query}},
                                                     {
                                                         "match_phrase": {
-                                                            f"{filter_.filter_by}.name": {"query": filter_.query}
+                                                            f"{filter_.filter_by}.name": {
+                                                                "query": filter_.query
+                                                            }
                                                         }
                                                     }
                                                 ]
@@ -146,7 +179,14 @@ async def get_films(
                     words = filter_.query.split(" ")
                     for word in words:
                         filters.append(
-                            {"fuzzy": {filter_.filter_by: {"value": word, "fuzziness": "AUTO"}}},
+                            {
+                                "fuzzy": {
+                                    filter_.filter_by: {
+                                        "value": word,
+                                        "fuzziness": "AUTO",
+                                    }
+                                }
+                            },
                         )
                     filter_query = {"bool": {"should": filters}}
 
@@ -154,7 +194,10 @@ async def get_films(
     sort_queries = [{"_score": "desc"}]
     if sort.sort_by is not None:
         if sort.sort_by not in ["-imdb_rating", "imdb_rating"]:
-            raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail='Разрешенная сортировка: "-imdb_rating", "imdb_rating"')
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail='Разрешенная сортировка: "-imdb_rating", "imdb_rating"',
+            )
         if sort.sort_by == "-imdb_rating":
             sort.sort_by = "desc"
         elif sort.sort_by == "imdb_rating":
@@ -162,7 +205,13 @@ async def get_films(
         sort_queries = [{"imdb_rating": sort.sort_by}]
 
     func_name = inspect.currentframe().f_code.co_name
-    template = template_cache_key(pagination=pagination, sort_queries=sort_queries, filter_query=filter_query, filter_=filter_, func_name=func_name)
+    template = template_cache_key(
+        pagination=pagination,
+        sort_queries=sort_queries,
+        filter_query=filter_query,
+        filter_=filter_,
+        func_name=func_name,
+    )
     films = await film_service.get_objects(
         index="movies",
         per_page=per_page,

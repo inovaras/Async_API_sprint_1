@@ -1,4 +1,3 @@
-from enum import Enum
 from http import HTTPStatus
 from typing import List
 
@@ -7,10 +6,13 @@ from core import config
 from dto.dto import FilmDTO, PersonDetailsDTO
 from fastapi import APIRouter, Depends, HTTPException, Response
 from models.person import Person
-from pydantic import BaseModel
 from services.film import FilmService, get_film_service
 import inspect
-from utils.utils import get_pagination_params, PersonsFilterQueryParamsSearch, template_cache_key
+from utils.utils import (
+    get_pagination_params,
+    PersonsFilterQueryParamsSearch,
+    template_cache_key,
+)
 
 router = APIRouter()
 
@@ -30,8 +32,14 @@ async def person_to_dto(person: Person, film_service: FilmService) -> PersonDeta
     return dto
 
 
-@router.get("/{person_id}", response_model=PersonDetailsDTO, description="Детальная информация по персоне.")
-async def person_details(person_id: str, film_service: FilmService = Depends(get_film_service)) -> PersonDetailsDTO:
+@router.get(
+    "/{person_id}",
+    response_model=PersonDetailsDTO,
+    description="Детальная информация по персоне.",
+)
+async def person_details(
+    person_id: str, film_service: FilmService = Depends(get_film_service)
+) -> PersonDetailsDTO:
     person = await film_service.get_person_by_id(person_id)
     if not person:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Person not found")
@@ -39,7 +47,11 @@ async def person_details(person_id: str, film_service: FilmService = Depends(get
     return await person_to_dto(person=person, film_service=film_service)
 
 
-@router.get("/search/", response_model=List[PersonDetailsDTO], description="Точный фразовый поиск персон по ФИО.")
+@router.get(
+    "/search/",
+    response_model=List[PersonDetailsDTO],
+    description="Точный фразовый поиск персон по ФИО.",
+)
 async def search_by_persons(
     response: Response,
     query: PersonsFilterQueryParamsSearch = Depends(),
@@ -53,7 +65,12 @@ async def search_by_persons(
     func_name = inspect.currentframe().f_code.co_name
 
     filter_query = {"match_phrase": {"full_name": {"query": query.query}}}
-    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=filter_query, filter_=query, func_name=func_name)
+    template = template_cache_key(
+        pagination=pagination,
+        filter_query=filter_query,
+        filter_=query,
+        func_name=func_name,
+    )
 
     persons = await film_service.get_objects(
         index="persons",
@@ -67,7 +84,9 @@ async def search_by_persons(
     )
 
     if not persons:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Persons not found")
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Persons not found"
+        )
 
     result: List[PersonDetailsDTO] = []
     for person in persons:
@@ -81,7 +100,11 @@ async def search_by_persons(
     return result
 
 
-@router.get("/{person_id}/film", response_model=List[FilmDTO], description="Фильмы, в которых участвовала персона.")
+@router.get(
+    "/{person_id}/film",
+    response_model=List[FilmDTO],
+    description="Фильмы, в которых участвовала персона.",
+)
 async def person_films(
     person_id: str,
     response: Response,
@@ -93,7 +116,7 @@ async def person_films(
     offset = (page - 1) * per_page
 
     func_name = inspect.currentframe().f_code.co_name
-    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=None, filter_=None, func_name=func_name )
+    template = template_cache_key(pagination=pagination, func_name=func_name)
 
     person = await film_service.get_person_by_id(person_id)
     if not person:
@@ -102,9 +125,24 @@ async def person_films(
     films_filter = {
         "bool": {
             "should": [
-                {"nested": {"path": "directors", "query": {"term": {"directors.id": person.id}}}},
-                {"nested": {"path": "writers", "query": {"term": {"writers.id": person.id}}}},
-                {"nested": {"path": "actors", "query": {"term": {"actors.id": person.id}}}},
+                {
+                    "nested": {
+                        "path": "directors",
+                        "query": {"term": {"directors.id": person.id}},
+                    }
+                },
+                {
+                    "nested": {
+                        "path": "writers",
+                        "query": {"term": {"writers.id": person.id}},
+                    }
+                },
+                {
+                    "nested": {
+                        "path": "actors",
+                        "query": {"term": {"actors.id": person.id}},
+                    }
+                },
             ]
         }
     }

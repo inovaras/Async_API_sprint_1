@@ -12,8 +12,13 @@ from utils.utils import get_pagination_params, template_cache_key
 
 router = APIRouter()
 
-@router.get("/{genre_id}", response_model=GenreDTO, description="Детальная информация по жанру.")
-async def genre_details(genre_id: str, film_service: FilmService = Depends(get_film_service)) -> GenreDTO:
+
+@router.get(
+    "/{genre_id}", response_model=GenreDTO, description="Детальная информация по жанру."
+)
+async def genre_details(
+    genre_id: str, film_service: FilmService = Depends(get_film_service)
+) -> GenreDTO:
     genre = await film_service.get_genre_by_id(genre_id)
     if not genre:
         # Если жанр не найден, отдаём 404 статус
@@ -35,8 +40,7 @@ async def get_genres(
     offset = (page - 1) * per_page
 
     func_name = inspect.currentframe().f_code.co_name
-    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=None, filter_=None, func_name=func_name)
-
+    template = template_cache_key(pagination=pagination, func_name=func_name)
     genres = await film_service.get_objects(
         index="genres",
         per_page=per_page,
