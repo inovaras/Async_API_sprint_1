@@ -80,7 +80,7 @@ class FilmsFilterQueryParamsSearch(BaseModel):
 
 
 def template_cache_key(*, pagination: dict, func_name: str, sort_queries: Optional[List[dict]]=None, filter_query: Optional[dict]=None, filter_: Optional[dict]=None) -> str:
-    pagination_query = f"{pagination["page"]}_{pagination["per_page"]}"
+    pagination_query = f"{pagination['page']}_{pagination['per_page']}"
     template = f"{func_name}_{pagination_query}"
 
     if sort_queries:
