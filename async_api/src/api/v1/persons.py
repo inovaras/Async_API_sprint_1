@@ -5,60 +5,14 @@ from typing import List
 from models.film import Film
 from core import config
 from dto.dto import FilmDTO, PersonDetailsDTO
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from models.person import Person
 from pydantic import BaseModel
 from services.film import FilmService, get_film_service
 import inspect
+from utils.utils import get_pagination_params, PersonsFilterQueryParamsSearch, template_cache_key
 
 router = APIRouter()
-
-
-# Define a dependency function that returns the pagination parameters
-def get_pagination_params(
-    # page must be greater than 0
-    page: int = Query(1, gt=0),
-    # per_page must be greater than 0
-    per_page: int = Query(10, gt=0),
-):
-    return {"page": page, "per_page": per_page}
-
-
-class OrderBy(str, Enum):
-    """Поля разрешенные для сортировки."""
-
-    imdb_rating = "imdb_rating"
-
-
-class FilterBy(str, Enum):
-    """Поля разрешенные для фильтрации."""
-
-    imdb_rating = "imdb_rating"
-    title = "title"
-    description = "description"
-
-
-class SortQueryParams(BaseModel):
-    need_sort: bool = False
-    order_by: OrderBy = OrderBy.imdb_rating
-    descending: bool = True
-
-
-class FilterQueryParams(BaseModel):
-    need_filter: bool = False
-    filter_by: FilterBy = FilterBy.imdb_rating
-    query: str | None = None
-
-
-class FilterBySearch(str, Enum):
-    """Поля разрешенные для фильтрации."""
-
-    full_name = "full_name"
-
-
-class FilterQueryParamsSearch(BaseModel):
-    filter_by: FilterBySearch = FilterBySearch.full_name
-    query: str
 
 
 async def person_to_dto(person: Person, film_service: FilmService) -> PersonDetailsDTO:
@@ -88,7 +42,7 @@ async def person_details(person_id: str, film_service: FilmService = Depends(get
 @router.get("/search/", response_model=List[PersonDetailsDTO], description="Точный фразовый поиск персон по ФИО.")
 async def search_by_persons(
     response: Response,
-    query: FilterQueryParamsSearch = Depends(),
+    query: PersonsFilterQueryParamsSearch = Depends(),
     pagination: dict = Depends(get_pagination_params),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[PersonDetailsDTO]:
@@ -97,9 +51,9 @@ async def search_by_persons(
     offset = (page - 1) * per_page
 
     func_name = inspect.currentframe().f_code.co_name
-    template = f"{func_name}_{per_page}_{offset}"
 
     filter_query = {"match_phrase": {"full_name": {"query": query.query}}}
+    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=filter_query, filter_=query, func_name=func_name)
 
     persons = await film_service.get_objects(
         index="persons",
@@ -107,7 +61,7 @@ async def search_by_persons(
         offset=offset,
         sort=None,
         search_query=filter_query,
-        cache_key=f"{template}_{query.query}",
+        cache_key=template,
         model=Person,
         expire=config.PERSON_CACHE_EXPIRE_IN_SECONDS,
     )
@@ -139,7 +93,7 @@ async def person_films(
     offset = (page - 1) * per_page
 
     func_name = inspect.currentframe().f_code.co_name
-    template = f"{func_name}_{per_page}_{offset}"
+    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=None, filter_=None, func_name=func_name )
 
     person = await film_service.get_person_by_id(person_id)
     if not person:
@@ -161,7 +115,7 @@ async def person_films(
         offset=offset,
         sort=None,
         search_query=films_filter,
-        cache_key=f"{template}_{person.id}",
+        cache_key=template,
         model=Film,
         expire=config.FILM_CACHE_EXPIRE_IN_SECONDS,
     )

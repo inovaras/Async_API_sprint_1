@@ -1,67 +1,17 @@
-from enum import Enum
 from http import HTTPStatus
 from typing import List
 
 from dto.dto import FilmDetailsDTO, FilmDTO
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from models.film import Film
 from models.genre import Genre
-from pydantic import BaseModel
 from services.film import FilmService, get_film_service
 from core import config
 import inspect
 
+from utils.utils import get_pagination_params, FilmsSortQueryParams, FilmsFilterQueryParams, FilmsFilterQueryParamsSearch, template_cache_key
+
 router = APIRouter()
-
-
-# Define a dependency function that returns the pagination parameters
-def get_pagination_params(
-    # page must be greater than 0
-    page: int = Query(1, gt=0),
-    # per_page must be greater than 0
-    per_page: int = Query(10, gt=0),
-):
-    return {"page": page, "per_page": per_page}
-
-
-class OrderBy(str, Enum):
-    """Поля разрешенные для сортировки."""
-
-    imdb_rating = "imdb_rating"
-
-
-class FilterBy(str, Enum):
-    """Поля разрешенные для фильтрации."""
-
-    imdb_rating = "imdb_rating"
-    title = "title"
-    description = "description"
-    genres = "genres"
-    actors = "actors"
-    directors = "directors"
-    writers = "writers"
-
-
-class FilterBySearch(str, Enum):
-    """Поля разрешенные для фильтрации."""
-
-    title = "title"
-    description = "description"
-
-
-class SortQueryParams(BaseModel):
-    sort_by: str | None = None
-
-
-class FilterQueryParams(BaseModel):
-    need_filter: bool = False
-    filter_by: FilterBy = FilterBy.imdb_rating
-    query: str | None = None
-
-
-class FilterQueryParamsSearch(BaseModel):
-    filter_by: FilterBySearch = FilterBySearch.title
-    query: str
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
@@ -70,7 +20,7 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
     film = await film_service.get_film_by_id(film_id)
     if not film:
         # Если фильм не найден, отдаём 404 статус
-        # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum    # Такой код будет более поддерживаемым
+        # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum, такой код будет более поддерживаемым
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
 
     if film.genres:
@@ -94,17 +44,15 @@ async def film_details(film_id: str, film_service: FilmService = Depends(get_fil
 @router.get("/search/", response_model=List[FilmDTO], description="Нечеткий поиск фильмов по заголовку или описанию.")
 async def search_by_films(
     response: Response,
-    query: FilterQueryParamsSearch = Depends(),
+    query: FilmsFilterQueryParamsSearch = Depends(),
     pagination: dict = Depends(get_pagination_params),
     film_service: FilmService = Depends(get_film_service),
 ) -> List[FilmDTO]:
     page = pagination["page"]
     per_page = pagination["per_page"]
     offset = (page - 1) * per_page
-    pagination_query = f"{page}_{per_page}"
     func_name = inspect.currentframe().f_code.co_name
-    template = f"{func_name}_{pagination_query}"
-
+    template = template_cache_key(pagination=pagination, sort_queries=None, filter_query=None, filter_=None, func_name=func_name )
 
     if query.filter_by in ["title", "description"]:
         filters = []
@@ -121,7 +69,7 @@ async def search_by_films(
         offset=offset,
         sort=None,
         search_query=filter_query,
-        cache_key=f"{template}_{query.filter_by}_{query.query}",
+        cache_key=template,
         model=Film,
         expire=config.FILM_CACHE_EXPIRE_IN_SECONDS,
     )
@@ -138,14 +86,12 @@ async def get_films(
     response: Response,
     film_service: FilmService = Depends(get_film_service),
     pagination: dict = Depends(get_pagination_params),
-    sort: SortQueryParams = Depends(),
-    filter_: FilterQueryParams = Depends(),
+    sort: FilmsSortQueryParams = Depends(),
+    filter_: FilmsFilterQueryParams = Depends(),
 ) -> List[Film]:
     page = pagination["page"]
     per_page = pagination["per_page"]
     offset = (page - 1) * per_page
-
-
 
     filter_query = None
     filters = []
@@ -216,19 +162,14 @@ async def get_films(
         sort_queries = [{"imdb_rating": sort.sort_by}]
 
     func_name = inspect.currentframe().f_code.co_name
-    template = f"{func_name}_{page}_{offset}"
-    if filter_query:
-        cache_key = f"{template}_{filter_.filter_by}_{filter_.query}"
-    else:
-        cache_key = f"{template}_without_filter"
-
+    template = template_cache_key(pagination=pagination, sort_queries=sort_queries, filter_query=filter_query, filter_=filter_, func_name=func_name)
     films = await film_service.get_objects(
         index="movies",
         per_page=per_page,
         offset=offset,
         sort=sort_queries,
         search_query=filter_query,
-        cache_key=cache_key,
+        cache_key=template,
         model=Film,
         expire=config.FILM_CACHE_EXPIRE_IN_SECONDS,
     )

@@ -40,6 +40,7 @@ class FilmService:
 
         Args:
             key (str): ключ для поиска в redis.
+            model (BaseModel): pydantic model, например данные Person.
 
         Returns:
             Optional[List[BaseModel]]: None или список c данными в формате pydantic models, унаследованных от BaseModel.
@@ -80,6 +81,8 @@ class FilmService:
 
         Args:
             id_ (str): id в elascticsearch.
+            index (str): индекс
+            model (BaseModel): pydantic model, например данные Person.
 
         Returns:
             Optional[BaseModel]: вернет персону или None.
@@ -162,7 +165,6 @@ class FilmService:
 
         return genre
 
-    # INFO OK
     async def get_objects(
         self,
         index: str,
@@ -209,7 +211,7 @@ class FilmService:
         return objects
 
 
-# TODO включить lru_cache() правильно, тк работает и без него
+
 @lru_cache()
 def get_film_service(
     redis: Redis = Depends(get_redis),
