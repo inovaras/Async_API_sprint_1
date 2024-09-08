@@ -45,8 +45,8 @@ services:
     volumes:
       - theatre-db-data:/var/lib/postgresql/data
       - ./database_dump.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready" ]
       interval: 10s
@@ -66,8 +66,8 @@ services:
       - ES_JAVA_OPTS=-Xms200m -Xmx500m
       - discovery.type=single-node
       - xpack.security.enabled=false
-    ports:
-      - "9200:9200"
+    expose:
+      - "9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     healthcheck:
@@ -106,6 +106,17 @@ services:
     networks:
       middle-practicum:
         ipv4_address: 172.18.0.7
+
+  async-api:
+    build: .
+    volumes:
+      - redis-cache:/data
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    depends_on:
+      - admin-etl-process
+    networks:
+      middle-practicum:
+        ipv4_address: 172.18.0.8
 
 
 volumes:
