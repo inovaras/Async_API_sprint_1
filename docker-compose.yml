@@ -108,7 +108,7 @@ services:
         ipv4_address: 172.18.0.7
 
   async-api:
-    build: .
+    build: inovaras/async-api
     restart: always
     container_name: async-api
     env_file:
