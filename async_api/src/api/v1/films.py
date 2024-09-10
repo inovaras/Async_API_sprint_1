@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from models.film import Film
 from models.genre import Genre
 from services.film import FilmService, get_film_service
-from core import config
+from core.config import settings
 import inspect
 
 from utils.utils import (
@@ -97,7 +97,7 @@ async def search_by_films(
         search_query=filter_query,
         cache_key=template,
         model=Film,
-        expire=config.FILM_CACHE_EXPIRE_IN_SECONDS,
+        expire=settings.FILM_CACHE_EXPIRE_IN_SECONDS,
     )
 
     response.headers["x-total-count"] = str(len(films))
@@ -220,7 +220,7 @@ async def get_films(
         search_query=filter_query,
         cache_key=template,
         model=Film,
-        expire=config.FILM_CACHE_EXPIRE_IN_SECONDS,
+        expire=settings.FILM_CACHE_EXPIRE_IN_SECONDS,
     )
 
     # Send some extra information in the response headers
