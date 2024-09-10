@@ -110,6 +110,7 @@ services:
   async-api:
     image: inovaras/async-api
     restart: always
+    pull_policy: always
     container_name: async-api
     env_file:
       - ./configs/.env
