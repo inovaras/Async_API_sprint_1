@@ -2,56 +2,43 @@ from http import HTTPStatus
 from typing import List
 
 from dto.dto import FilmDetailsDTO, FilmDTO
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from models.film import Film
 from models.genre import Genre
-from services.film import FilmService, get_film_service
-from core.config import settings
-import inspect
-
+from services.film import BaseService, get_film_service
+from services.genre import get_genre_service
 from utils.utils import (
-    get_pagination_params,
-    FilmsSortQueryParams,
     FilmsFilterQueryParams,
     FilmsFilterQueryParamsSearch,
-    template_cache_key,
+    FilmsSortQueryParams,
+    get_pagination_params,
+    update_headers,
 )
 
 router = APIRouter()
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
-@router.get(
-    "/{film_id}",
-    response_model=FilmDetailsDTO,
-    description="Детальная информация по фильму.",
-)
+@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Детальная информация по фильму.")
 async def film_details(
-    film_id: str, film_service: FilmService = Depends(get_film_service)
+    film_id: str,
+    film_service: BaseService = Depends(get_film_service),
+    genre_service: BaseService = Depends(get_genre_service),
 ) -> Film:
-    film = await film_service.get_film_by_id(film_id)
+    film = await film_service.get_by_id(film_id)
     if not film:
         # Если фильм не найден, отдаём 404 статус
         # Желательно пользоваться уже определёнными HTTP-статусами, которые содержат enum, такой код будет более поддерживаемым
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="film not found")
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Film not found")
 
     if film.genres:
         genres: List[Genre] = []
         for genre_name in film.genres:
-            genre: Genre | None = await film_service.get_genre_by_name(
-                genre_name=genre_name
-            )
+            genre: Genre | None = await genre_service.get_genre_by_name(genre_name=genre_name)
             if genre:
                 genres.append(genre)
     film.genres = genres
-    # Перекладываем данные из models.FilmDTO в FilmDTO
-    # Обратите внимание, что у модели бизнес-логики есть поле description,
-    # которое отсутствует в модели ответа API.
-    # Если бы использовалась общая модель для бизнес-логики и формирования ответов API,
-    # вы бы предоставляли клиентам данные, которые им не нужны
-    # и, возможно, данные, которые опасно возвращать
-    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating, actors=film.actors)
-    # return FilmDTO(id=film.id, title=film.title, imdb_rating=film.imdb_rating)
+
     return film
 
 
@@ -61,48 +48,19 @@ async def film_details(
     description="Нечеткий поиск фильмов по заголовку или описанию.",
 )
 async def search_by_films(
+    request: Request,
     response: Response,
     query: FilmsFilterQueryParamsSearch = Depends(),
     pagination: dict = Depends(get_pagination_params),
-    film_service: FilmService = Depends(get_film_service),
+    film_service: BaseService = Depends(get_film_service),
 ) -> List[FilmDTO]:
-    page = pagination["page"]
-    per_page = pagination["per_page"]
-    offset = (page - 1) * per_page
-    func_name = inspect.currentframe().f_code.co_name
+    """query забираю из request.url. Не удалять!"""
 
-    filter_query = None
+    films = await film_service.get_objects(request=request)
+    if not films:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Films not found")
 
-    if query.filter_by in ["title", "description"]:
-        filters = []
-        words = query.query.split(" ")
-        for word in words:
-            filters.append(
-                {"fuzzy": {query.filter_by: {"value": word, "fuzziness": "AUTO"}}},
-            )
-        filter_query = {"bool": {"should": filters}}
-
-    template = template_cache_key(
-        pagination=pagination,
-        filter_query=filter_query,
-        filter_=query,
-        func_name=func_name,
-    )
-
-    films = await film_service.get_objects(
-        index="movies",
-        per_page=per_page,
-        offset=offset,
-        sort=None,
-        search_query=filter_query,
-        cache_key=template,
-        model=Film,
-        expire=settings.FILM_CACHE_EXPIRE_IN_SECONDS,
-    )
-
-    response.headers["x-total-count"] = str(len(films))
-    response.headers["x-page"] = str(page)
-    response.headers["x-per-page"] = str(per_page)
+    await update_headers(response, pagination, films)
 
     return films
 
@@ -113,120 +71,41 @@ async def search_by_films(
     description="Поиск фильмов с возможностью сортировки по рейтингу",
 )
 async def get_films(
+    request: Request,
     response: Response,
-    film_service: FilmService = Depends(get_film_service),
+    film_service: BaseService = Depends(get_film_service),
+    genre_service: BaseService = Depends(get_genre_service),
     pagination: dict = Depends(get_pagination_params),
     sort: FilmsSortQueryParams = Depends(),
     filter_: FilmsFilterQueryParams = Depends(),
 ) -> List[Film]:
-    page = pagination["page"]
-    per_page = pagination["per_page"]
-    offset = (page - 1) * per_page
-
-    filter_query = None
-    filters = []
-    if filter_.need_filter:
-        if filter_.query:
-            # INFO фильтрация по рейтингу
-            if filter_.filter_by == "imdb_rating":
-                if not filter_.query.isdigit():
-                    raise HTTPException(
-                        status_code=HTTPStatus.BAD_REQUEST,
-                        detail="Filter by imdb_rating must be int or float",
-                    )
-                filter_.query = float(filter_.query)
-                filter_query = {"term": {filter_.filter_by: filter_.query}}
-            else:
-                # INFO поиск в List[str]
-                if filter_.filter_by == "genres":
-                    genre_model: Genre | None = await film_service.get_genre_by_name(
-                        genre_name=filter_.query
-                    )
-                    if genre_model and filter_.need_filter:
-                        filter_query = {"match": {filter_.filter_by: genre_model.name}}
-
-                # INFO поиск в списке по имени
-                if filter_.filter_by in ["actors", "directors", "writers"]:
-                    filter_query = {
-                        "bool": {
-                            "must": [
-                                # {"match": {"title": "eggs"}},
-                                {
-                                    "nested": {
-                                        "path": filter_.filter_by,
-                                        "query": {
-                                            "bool": {
-                                                "must": [
-                                                    # {"match": {f"{filter_.filter_by}.name": filter_.query}},
-                                                    {
-                                                        "match_phrase": {
-                                                            f"{filter_.filter_by}.name": {
-                                                                "query": filter_.query
-                                                            }
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        },
-                                    }
-                                },
-                            ]
-                        }
-                    }
-                # INFO нечеткий поиск
-                if filter_.filter_by in ["title", "description"]:
-                    filters = []
-                    words = filter_.query.split(" ")
-                    for word in words:
-                        filters.append(
-                            {
-                                "fuzzy": {
-                                    filter_.filter_by: {
-                                        "value": word,
-                                        "fuzziness": "AUTO",
-                                    }
-                                }
-                            },
-                        )
-                    filter_query = {"bool": {"should": filters}}
-
-    # сортировка по релевантности запросу, если не включена сортировка по рейтингу.
-    sort_queries = [{"_score": "desc"}]
     if sort.sort_by is not None:
         if sort.sort_by not in ["-imdb_rating", "imdb_rating"]:
             raise HTTPException(
                 status_code=HTTPStatus.BAD_REQUEST,
                 detail='Разрешенная сортировка: "-imdb_rating", "imdb_rating"',
             )
-        if sort.sort_by == "-imdb_rating":
-            sort.sort_by = "desc"
-        elif sort.sort_by == "imdb_rating":
-            sort.sort_by = "asc"
-        sort_queries = [{"imdb_rating": sort.sort_by}]
 
-    func_name = inspect.currentframe().f_code.co_name
-    template = template_cache_key(
-        pagination=pagination,
-        sort_queries=sort_queries,
-        filter_query=filter_query,
-        filter_=filter_,
-        func_name=func_name,
-    )
-    films = await film_service.get_objects(
-        index="movies",
-        per_page=per_page,
-        offset=offset,
-        sort=sort_queries,
-        search_query=filter_query,
-        cache_key=template,
-        model=Film,
-        expire=settings.FILM_CACHE_EXPIRE_IN_SECONDS,
-    )
+    if filter_.query:
+        if filter_.filter_by == "imdb_rating":
+            if not filter_.query.isdigit():
+                raise HTTPException(
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    detail="Filter by imdb_rating must be int or float",
+                )
+        else:
+            # регистрозависимый. Правильно - Drama,  неправильно - drama.
+            if filter_.filter_by == "genre":
+                filter_.query = filter_.query.capitalize()
+                genre_model: Genre | None = await genre_service.get_genre_by_name(genre_name=filter_.query)
+                if not genre_model:
+                    raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Genre not found")
+                request.query_params.__dict__["_dict"]["genre"] = genre_model.name
 
-    # Send some extra information in the response headers
-    # so the client can retrieve it as needed
-    response.headers["x-total-count"] = str(len(films))
-    response.headers["x-page"] = str(page)
-    response.headers["x-per-page"] = str(per_page)
+    films = await film_service.get_objects(request=request)
+    if not films:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Films not found")
+
+    await update_headers(response, pagination, films)
 
     return films

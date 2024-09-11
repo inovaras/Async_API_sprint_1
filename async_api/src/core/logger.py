@@ -1,14 +1,3 @@
-import os
-from logging import config as logging_config
-
-from dotenv import load_dotenv
-
-import logging
-
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DEFAULT_HANDLERS = [
     "console",

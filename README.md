@@ -180,23 +180,9 @@ http://127.0.0.1:8000/api/openapi#/
 Нечеткий поиск по нескольким словам (нечеткий поиск - когда разрешено делать опечатки в словах).
 Используется в `search_by_films` для поиска по `title` и `description`.<br>
 В примере найдет все слова похожие на George и Lucas. (не фразовый поиск, а поиск отдельно по каждому слову)<br>
-**Возможно запрос нечеткого поиска можно упростить - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**.
+**Урок нечеткого поиска - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**.
 ```python
-filters = []
-words = "Geoge Lucs".split(" ")
-for word in words:
-    filters.append(
-        {"fuzzy": {"title": {"value": word, "fuzziness": "AUTO"}}},
-    )
-filter_query = {"bool": {"should": filters}}
-```
-**Упростить вот так (требует проверки)**
-```python
-{"match": {
-    "text_field": {
-                "query": "whit code",
-                "fuzziness": "auto"
-            }}}
+{"multi_match": {"query": George Lucas, "fuzziness": "auto","fields": ["title", "description"]}}
 ```
 
 Фразовый поиск внутри `List[dict]`. Используется в `get_films` для поиска по полю `name` в `directors`,
@@ -323,3 +309,21 @@ curl -XGET http://172.18.0.5:9200/movies/_search?pretty -H 'Content-Type: applic
 **Redis**<br>
 [Учебник Redis](https://python-scripts.com/redis)<br>
 [Теория кэширования](https://rutube.ru/video/86f8ec983f010f25af80f8af211f53f8/)
+
+## На память
+Получить название функции в которой выполняется код
+```python
+import inspect
+
+def any_func():
+    func_name = inspect.currentframe().f_code.co_name
+    print(func_name)  # any_func
+```
+
+Параметры для запроса в еластик беру из request.query_params
+
+
+docker compose override
+сделать cash service as ABC для redis
+ключом для редис можнет быть url  запроса
+поднять nginx  для api чтобы решить проблему 10к соединений

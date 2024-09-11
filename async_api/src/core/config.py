@@ -1,13 +1,13 @@
 import os
-from pydantic_settings import BaseSettings
-
 
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 load_dotenv()
 
 # Корень проекта
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 # Конфиг с использованием Pydantic
 class Settings(BaseSettings):
@@ -33,17 +33,9 @@ class Settings(BaseSettings):
     LOG_LEVEL: str
 
     class Config:
-        # env_file = "../../configs/.env"
         env_file = f"{BASE_DIR}/../../configs/.env"
         extra = "ignore"
 
-    # model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
 # Инициализация настроек
 settings = Settings()
-
-
-# проверка
-# print(f"Project Name: {settings.project_name}")
-# print(f"Redis Host: {settings.redis_host}")
-# print(f"Redis Port: {settings.redis_port}")

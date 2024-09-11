@@ -9,7 +9,7 @@ class FilmDTO(BaseModel):
     id: str
     title: str
     imdb_rating: float | None
-    # genres: List[str] | None
+    genres: List[str] | None
     # directors: List[Role] | None
     # actors: List[Role] | None
     # writers: List[Role] | None
@@ -25,7 +25,6 @@ class FilmDetailsDTO(BaseModel):
     actors: List[Role] | None
     writers: List[Role] | None
     # отсутствует в индексе
-    # TODO возможно надо убрать тк нет в примере "Полная информация по фильму" таких полей
     created_date: str | None
     film_link: str | None
 
@@ -39,4 +38,3 @@ class PersonDetailsDTO(BaseModel):
 class GenreDTO(BaseModel):
     id: str
     name: str
-
