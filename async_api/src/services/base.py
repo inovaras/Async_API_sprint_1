@@ -2,33 +2,33 @@ import json
 from abc import ABC
 from typing import List, Optional
 
+from cache.cache import Cache
 from elasticsearch import AsyncElasticsearch, NotFoundError
 from fastapi import Request
 from fastapi.datastructures import URL
 from pydantic import BaseModel
-from state.state import State
 from utils.utils import get_pagination_params
 
 
 class BaseService(ABC):
+    """Абстрактный класс, реализующий базоый функционал сервиса.
 
-    def __init__(self, state: State, elastic: AsyncElasticsearch):
-        self.state = state
+    Используется только через наследование.
+    В классе-наследнике необходимо указать index, expire, model.
+    index (str) - индекс для поиска в elasticsearch. Пример: "genres".
+    expire (int) - срок хранения в кэше, в секундах. Пример: 300.
+    model (BaseModel) - pydantic модель используемая в сервисе. Пример: Film, Genre, Person.
+    """
+
+    def __init__(self, cache: Cache, elastic: AsyncElasticsearch):
+        self.cache = cache
         self.elastic = elastic
         self.index = ""
         self.expire = 0
         self.model: BaseModel = None
 
     async def _get_from_cache(self, key: str) -> Optional[BaseModel | List[BaseModel]]:
-        """Взять данные из кэша, сохраненные по ключу.
-
-        Args:
-            key (str): ключ для поиска в redis.
-
-        Returns:
-            Optional[BaseModel]: вернет pydantic model или None.
-        """
-        data = await self.state.get_state(key)
+        data = await self.cache.get_cache(key)
         if not data:
             return None
 
@@ -41,31 +41,19 @@ class BaseService(ABC):
         return cache
 
     async def _put_to_cache(self, key: str, data: BaseModel | List[BaseModel]):
-        """Положить данные pydantic model в кэш.
+        """Положить данные в кэш.
 
-        Args:
-            data (BaseModel): данные pydantic model, например данные Person.
-            expire (int): срок хранения данных в кэше, в секундах.
+        expire (int): срок хранения данных в кэше, в секундах. Указывается в классе-наследнике.
         """
         if isinstance(data, BaseModel):
-            await self.state.set_state(key, data.model_dump_json(), self.expire)
+            await self.cache.set_cache(key, data.model_dump_json(), self.expire)
         elif isinstance(data, list):
             cache = []
             for obj in data:
                 cache.append(obj.model_dump_json())
-            await self.state.set_state(key.lower(), json.dumps(cache), self.expire)
+            await self.cache.set_cache(key.lower(), json.dumps(cache), self.expire)
 
     async def _get_from_elastic(self, id_: str) -> Optional[BaseModel]:
-        """Получить одну персону из elasticsearch.
-
-        Args:
-            id_ (str): id в elascticsearch.
-            index (str): индекс
-            model (BaseModel): pydantic model, например данные Person.
-
-        Returns:
-            Optional[BaseModel]: вернет персону или None.
-        """
         try:
             doc = await self.elastic.get(id=id_, index=self.index)
         except NotFoundError:
@@ -73,6 +61,7 @@ class BaseService(ABC):
         return self.model(**doc["_source"])
 
     async def get_by_id(self, id_: str) -> Optional[BaseModel]:
+        """Обертка для запросов в кэш и хранилище."""
         # Пытаемся получить данные из кеша, потому что оно работает быстрее
         model = await self._get_from_cache(key=id_)
         if not model:
@@ -86,8 +75,7 @@ class BaseService(ABC):
 
         return model
 
-    async def _url_params(self, query_params: dict) -> dict:
-
+    async def _get_correct_params(self, query_params: dict) -> dict:
         if query_params:
             for param in query_params.items():
                 key, value = param
@@ -119,7 +107,12 @@ class BaseService(ABC):
     async def _get_cache_key(self, url: URL) -> str:
         return f"{url.path}?{url.query}"
 
-    async def _build_query_request(self, params: dict, url: URL, path_params: dict):
+    async def _build_query_request(self, params: dict, url: URL, path_params: dict) -> dict:
+        """Сформировать поисковый запрос для elasticsearch.
+
+        params - параметры, которые идут после знака "?". Пример: /api/v1/person?sort=imdb_rating&page=1
+        path_params - параметры, которые подставляются в path. Пример: /api/v1/person/{id}
+        """
         search_query = None
         filter_by = params.get("filter_by")
         query = params.get("query")
@@ -132,24 +125,9 @@ class BaseService(ABC):
                 search_query = {
                     "bool": {
                         "should": [
-                            {
-                                "nested": {
-                                    "path": "directors",
-                                    "query": {"term": {"directors.id": person_id}},
-                                }
-                            },
-                            {
-                                "nested": {
-                                    "path": "writers",
-                                    "query": {"term": {"writers.id": person_id}},
-                                }
-                            },
-                            {
-                                "nested": {
-                                    "path": "actors",
-                                    "query": {"term": {"actors.id": person_id}},
-                                }
-                            },
+                            {"nested": {"path": "directors", "query": {"term": {"directors.id": person_id}}}},
+                            {"nested": {"path": "writers", "query": {"term": {"writers.id": person_id}}}},
+                            {"nested": {"path": "actors", "query": {"term": {"actors.id": person_id}}}},
                         ]
                     }
                 }
@@ -177,7 +155,6 @@ class BaseService(ABC):
                     }
                 }
         elif url.path == "/api/v1/films/search/":
-            # INFO изменен тип поиска для search_by_films
             search_query = {
                 "multi_match": {
                     "query": query,
@@ -194,32 +171,25 @@ class BaseService(ABC):
 
         return search_query
 
-    async def get_objects(
-        self,
-        request: Request,
-    ) -> Optional[List[BaseModel]]:
+    async def get_objects(self, request: Request) -> Optional[List[BaseModel]]:
         """Получить список персон с пагинацией.
         Данная реализация ограничена 10000 результатов и страдает от глубокой пагинации.
         См. статью ниже - в ней описаны различные варианты пагинации и проблемы связанные с ними.
         https://opster.com/guides/elasticsearch/how-tos/elasticsearch-pagination-techniques/
-        Args:
-            index (str): индекс в elasticsearch.
-            per_page (int): количество фильмов на страницу.
-            offset (int): сдвиг при переходе на следующую страницу.
-            sort (list(dict)): запрос сортировки в elastichsearch.
-            persons_filter (List[Dict[str, Any]]): запрос фильтрации в elasticsearch.
 
-        Returns:
-            list(Person): список персон.
+        index для поиска указывается в классе-наследнике абстрактного сервиса.\n
+        Параметры для поиска достаются из request.
+
+        Args:
+            request (Request): инстанс запроса FastApi.
         """
         url = request.url
-        # INFO _dict для query_params т.к. обновляю словарь на лету.
+        # INFO использовать _dict для query_params т.к. обновляю словарь на лету.
         query_params = request.query_params._dict
         path_params = request.path_params
-
-        params = await self._url_params(query_params)
+        params = await self._get_correct_params(query_params)
         cache_key = await self._get_cache_key(url)
-        # search in redis
+
         objects = await self._get_from_cache(key=cache_key)
         if not objects:
             search_query = await self._build_query_request(params=params, url=url, path_params=path_params)
@@ -235,7 +205,7 @@ class BaseService(ABC):
                 objects.append(self.model(**doc["_source"]))
             if not objects:
                 return None
-            # save in redis
+
             await self._put_to_cache(key=cache_key, data=objects)
 
         return objects

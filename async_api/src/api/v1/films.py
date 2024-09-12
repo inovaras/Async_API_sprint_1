@@ -19,7 +19,11 @@ router = APIRouter()
 
 
 # Внедряем FilmService с помощью Depends(get_film_service)
-@router.get("/{film_id}", response_model=FilmDetailsDTO, description="Детальная информация по фильму.")
+@router.get(
+    "/{film_id}",
+    response_model=FilmDetailsDTO,
+    description="Детальная информация по фильму.",
+)
 async def film_details(
     film_id: str,
     film_service: BaseService = Depends(get_film_service),
@@ -55,7 +59,6 @@ async def search_by_films(
     film_service: BaseService = Depends(get_film_service),
 ) -> List[FilmDTO]:
     """query забираю из request.url. Не удалять!"""
-
     films = await film_service.get_objects(request=request)
     if not films:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Films not found")
@@ -94,8 +97,9 @@ async def get_films(
                     detail="Filter by imdb_rating must be int or float",
                 )
         else:
-            # регистрозависимый. Правильно - Drama,  неправильно - drama.
             if filter_.filter_by == "genre":
+                # Поиск в genres регистрозависимый, тк mapping для genres - "text", а не "keyword".
+                # Чтобы поиск удался, первую букву делаю заглавной.
                 filter_.query = filter_.query.capitalize()
                 genre_model: Genre | None = await genre_service.get_genre_by_name(genre_name=filter_.query)
                 if not genre_model:
