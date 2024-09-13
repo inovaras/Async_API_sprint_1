@@ -65,6 +65,7 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
 ```
 
 ## Общее
+Поднят nginx  для api чтобы решить проблему 10к соединений.<br>
 Проект разворачивается через docker compose.<br>
 *Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`.*<br>
 Используется сеть со статичными адресами для устранения проблемы смены ip адресов при перезапуске контейнеров.<br>
@@ -73,7 +74,7 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
 В проекте используется код из ранее выполненных спринтов, спринты загружены в виде образов на docker hub.<br>
 [Админка](https://github.com/NankuF/new_admin_panel_sprint_2)
 ```yaml
-  service:
+  admin-app:
     image: inovaras/admin-app
 ```
 [ETL процесс](https://github.com/NankuF/new_admin_panel_sprint_3) обновления данных из postgres в elasticsearch при внесении изменений через админку.
@@ -82,9 +83,9 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
     image: inovaras/admin-etl
 ```
 
-API из докера доступно по адресу: http://127.0.0.1:8080/api/openapi#/<br>
+API из докера доступно по адресу: http://127.0.0.1:81/api/openapi#/ (через nginx)<br>
 API при запуске в IDE доступно по адресу: http://127.0.0.1:8000/api/openapi#/<br>
-Админ-панель доступна по адресу: http://127.0.0.1/admin/<br>
+Админ-панель доступна по адресу: http://127.0.0.1/admin/ (через nginx)<br>
 Login: `admin`<br>
 Password: `123123`<br>
 
@@ -92,7 +93,7 @@ Password: `123123`<br>
 1) Выполнить "Требования перед  установкой".
 2) Открыть API
 ```text
-http://127.0.0.1:8080/api/openapi#/
+http://127.0.0.1:81/api/openapi#/
 ```
 
 ## Запуск локально для разработки проекта
@@ -117,10 +118,9 @@ http://127.0.0.1:8000/api/openapi#/
    - По uuid кэшируются запросы для одного объекта(персона, фильм, жанр).
    - По составному ключу кэшируются запросы для получения списка объектов.<br>
    - Поиск сначала производится в кэше, затем в elasticsearch. Ответ возвращается в API.<br>
-Шаблон составного ключа cмотри в разделе Redis.<br>
-**Важно! Параметры сортировки, пагинации и поиска(фильтрации) должны быть указаны в составном ключе, иначе запрос кешируется и данные отображаются неверно.**<br>
+В качествесоставного ключа используется строка вида `url.path?url.query`.<br>
 ## Redis
-Кэширование находится в ```services.film.py```.<br>
+Класс реализующий кэширование находится в ```services.cache.cache.py```.<br>
 Кэширование проверяется до запроса в elasticsearch.<br>
 Кэш записывается после запроса в elasticsearch.<br>
 Срок жизни кэша указан в `.env`:<br>
@@ -128,33 +128,11 @@ http://127.0.0.1:8000/api/openapi#/
 `PERSON_CACHE_EXPIRE_IN_SECONDS=300`<br>
 `GENRE_CACHE_EXPIRE_IN_SECONDS=300`<br>
 
-Кэширование одиночного объекта:<br>
-`_get_object_from_cache`<br>
-`_put_object_to_cache`<br>
-
-Кэширование списка объектов:<br>
-`_get_objects_from_cache`<br>
-`_put_objects_to_cache`<br>
-
-Обертки для кэширования в redis и поиска в elasticsearch:<br>
-`get_film_by_id`<br>
-`get_person_by_id`<br>
-`get_genre_by_id`<br>
-`get_genre_by_name`<br>
-`get_objects`<br>
-
-Шаблон составного ключа:<br>
-```
-<название функции>_<параметры пагинации>_<параметры сортировки>_<поисковый запрос>
-```
-`<название функции>` - название функции, из которой был отправлен запрос.<br>
-`<параметры пагинации>`- номер страницы и кол-во объектов на страницу. (page, per_page).<br>
-`<параметры сортировки>` - запрос, по которому была применена сортировка. Пример: "-imdb_rating".<br>
-`<поисковый запрос>`- запрос, по которому собраны данные. Пример: "George Lucas".<br>
-**Важно! Параметры сортировки, пагинации и поиска(фильтрации) должны быть указаны в составном ключе, иначе запрос кешируется и данные отображаются неверно.**<br>
+Кэширование используется в абстрактном сервисе `BaseService`, и его наследниках `FilmService`, `GenreService`, `PersonService`.<br>
 
 ## Elasticsearch
-Запросы к elasticsearch в ```services.film.py``` и ```api.v1.*.py```.<br>
+Поисковые запросы к elasticsearch формируются в методе `_build_query_request()`.<br>
+Используется простое сравнение эндпоинта api c `url.path`.
 Данные собираются из elasticsearch при помощи поисковых запросов.<br>
 **Примеры:**<br>
 Запрос для поиска id в любом из трех `List[dict]`. Используется в `person_films` для поиска роли по `uuid` в `directors`,
@@ -180,23 +158,9 @@ http://127.0.0.1:8000/api/openapi#/
 Нечеткий поиск по нескольким словам (нечеткий поиск - когда разрешено делать опечатки в словах).
 Используется в `search_by_films` для поиска по `title` и `description`.<br>
 В примере найдет все слова похожие на George и Lucas. (не фразовый поиск, а поиск отдельно по каждому слову)<br>
-**Возможно запрос нечеткого поиска можно упростить - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**.
+**Урок нечеткого поиска - [смотри урок](https://practicum.yandex.ru/trainer/middle-python/lesson/a062e471-010c-4d1c-8193-3835f1f7cbaa/)**.
 ```python
-filters = []
-words = "Geoge Lucs".split(" ")
-for word in words:
-    filters.append(
-        {"fuzzy": {"title": {"value": word, "fuzziness": "AUTO"}}},
-    )
-filter_query = {"bool": {"should": filters}}
-```
-**Упростить вот так (требует проверки)**
-```python
-{"match": {
-    "text_field": {
-                "query": "whit code",
-                "fuzziness": "auto"
-            }}}
+{"multi_match": {"query": George Lucas, "fuzziness": "auto","fields": ["title", "description"]}}
 ```
 
 Фразовый поиск внутри `List[dict]`. Используется в `get_films` для поиска по полю `name` в `directors`,
@@ -262,7 +226,6 @@ filter_query = {"bool": {"should": filters}}
     }
 }
 ```
-
 ### Запросы к Elasticsearch через curl
 Посмотреть маппинг
 ```bash
@@ -323,3 +286,27 @@ curl -XGET http://172.18.0.5:9200/movies/_search?pretty -H 'Content-Type: applic
 **Redis**<br>
 [Учебник Redis](https://python-scripts.com/redis)<br>
 [Теория кэширования](https://rutube.ru/video/86f8ec983f010f25af80f8af211f53f8/)
+
+## На память
+Получить название функции в которой выполняется код
+```python
+import inspect
+
+def any_func():
+    func_name = inspect.currentframe().f_code.co_name
+    print(func_name)  # any_func
+```
+
+## Что можно улучшить
+1) Возможно есть более удобные или универсальные поисковые запросы в эластик. (см. в `_build_query_request()`)
+2) Улучшить способ маппинга эндпоинта, вызвавшего эластик с поисковым запросом. Сейчас при создании нового эндпоинта требуется его добавление в `_build_query_request()`. Изменение пути эндпоинта приведет к невозможности определить поисковый запрос. Возможное решение лежит в получении списка всех роутов...
+3) Уменьшить зависимость от elasticsearch. Вынести elasticsearch в отдельный класс, аналогично кэшу.
+   ```python
+   @lru_cache()
+    def get_film_service(
+        cache: Cache = Depends(get_cache_storage),
+        elastic: AsyncElasticsearch = Depends(get_elastic),
+    ) -> BaseService:
+        return FilmService(cache, elastic)
+   ```
+4) Использовать docker compose override для разделения dev-разработки на статичных ip и запуска прод-сервиса.

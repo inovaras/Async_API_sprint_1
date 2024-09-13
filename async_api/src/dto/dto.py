@@ -25,7 +25,6 @@ class FilmDetailsDTO(BaseModel):
     actors: List[Role] | None
     writers: List[Role] | None
     # отсутствует в индексе
-    # TODO возможно надо убрать тк нет в примере "Полная информация по фильму" таких полей
     created_date: str | None
     film_link: str | None
 
@@ -39,4 +38,3 @@ class PersonDetailsDTO(BaseModel):
 class GenreDTO(BaseModel):
     id: str
     name: str
-

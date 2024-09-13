@@ -5,21 +5,22 @@ from core.config import settings
 from db.elastic import get_elastic
 from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
-from models.film import Film
+from models.person import Person
 from services.base import BaseService
 
 
-class FilmService(BaseService):
+class PersonService(BaseService):
+
     def __init__(self, cache: Cache, elastic: AsyncElasticsearch):
         super().__init__(cache, elastic)
-        self.index = "movies"
-        self.expire = settings.FILM_CACHE_EXPIRE_IN_SECONDS
-        self.model = Film
+        self.index = "persons"
+        self.expire = settings.PERSON_CACHE_EXPIRE_IN_SECONDS
+        self.model = Person
 
 
 @lru_cache()
-def get_film_service(
+def get_person_service(
     cache: Cache = Depends(get_cache_storage),
     elastic: AsyncElasticsearch = Depends(get_elastic),
 ) -> BaseService:
-    return FilmService(cache, elastic)
+    return PersonService(cache, elastic)
