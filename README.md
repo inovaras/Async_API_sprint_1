@@ -65,6 +65,7 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
 ```
 
 ## Общее
+Поднят nginx  для api чтобы решить проблему 10к соединений.<br>
 Проект разворачивается через docker compose.<br>
 *Для dev-запуска необходимо закомментировать сервис `async-api` в `docker-compose.yml`.*<br>
 Используется сеть со статичными адресами для устранения проблемы смены ip адресов при перезапуске контейнеров.<br>
@@ -73,7 +74,7 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
 В проекте используется код из ранее выполненных спринтов, спринты загружены в виде образов на docker hub.<br>
 [Админка](https://github.com/NankuF/new_admin_panel_sprint_2)
 ```yaml
-  service:
+  admin-app:
     image: inovaras/admin-app
 ```
 [ETL процесс](https://github.com/NankuF/new_admin_panel_sprint_3) обновления данных из postgres в elasticsearch при внесении изменений через админку.
@@ -82,9 +83,9 @@ yellow open   genres  bbZVj-KTSs6SLV1Nfl3OOg   1   1         26            0    
     image: inovaras/admin-etl
 ```
 
-API из докера доступно по адресу: http://127.0.0.1:8080/api/openapi#/<br>
+API из докера доступно по адресу: http://127.0.0.1:81/api/openapi#/ (через nginx)<br>
 API при запуске в IDE доступно по адресу: http://127.0.0.1:8000/api/openapi#/<br>
-Админ-панель доступна по адресу: http://127.0.0.1/admin/<br>
+Админ-панель доступна по адресу: http://127.0.0.1/admin/ (через nginx)<br>
 Login: `admin`<br>
 Password: `123123`<br>
 
@@ -92,7 +93,7 @@ Password: `123123`<br>
 1) Выполнить "Требования перед  установкой".
 2) Открыть API
 ```text
-http://127.0.0.1:8080/api/openapi#/
+http://127.0.0.1:81/api/openapi#/
 ```
 
 ## Запуск локально для разработки проекта
@@ -309,4 +310,3 @@ def any_func():
         return FilmService(cache, elastic)
    ```
 4) Использовать docker compose override для разделения dev-разработки на статичных ip и запуска прод-сервиса.
-5) Поднять nginx  для api чтобы решить проблему 10к соединений

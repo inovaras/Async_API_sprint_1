@@ -9,7 +9,7 @@ class FilmDTO(BaseModel):
     id: str
     title: str
     imdb_rating: float | None
-    genres: List[str] | None
+    # genres: List[str] | None
     # directors: List[Role] | None
     # actors: List[Role] | None
     # writers: List[Role] | None
