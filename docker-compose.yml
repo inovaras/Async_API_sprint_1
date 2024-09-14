@@ -108,10 +108,10 @@ services:
         ipv4_address: 172.18.0.7
 
   readonly-async-api:
-    # image: inovaras/async-api
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: inovaras/async-api
+    # build:
+      # context: .
+      # dockerfile: Dockerfile
     restart: always
     pull_policy: always
     container_name: readonly-async-api
