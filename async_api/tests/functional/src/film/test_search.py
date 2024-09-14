@@ -4,52 +4,50 @@ import uuid
 import pytest
 from settings import test_settings
 
+from testdata.data.film import film_collections
 #  Название теста должно начинаться со слова `test_`
 #  Любой тест с асинхронными вызовами нужно оборачивать декоратором `pytest.mark.asyncio`, который следит за запуском и работой цикла событий.
 
+
+"""
+    все граничные случаи по валидации данных;
+    вывести только N записей;
+    поиск записи или записей по фразе;
+    поиск с учётом кеша в Redis.
+"""
+
+"""
+{'query': 'The Star', "per_page": 1, "page":1}, # BUG если не указать page код падает.
+{'status': 200, 'length': 1}
+File "/async_api/src/services/base.py", line 103, in _get_correct_params
+    query_params["offset"] = (query_params["page"] - 1) * query_params["per_page"]
+"""
+
+
 @pytest.mark.parametrize(
-    'query_data, expected_answer',
+    'query_data, expected_answer, es_data',
     [
         (
                 # {'search': 'The Star'},
                 {'query': 'The Star'},
-                {'status': 200, 'length': 50}
+                {'status': 200, 'length': 50},
+                film_collections
         ),
         (
                 {'query': 'Mashed potato'},
-                {'status': 404, "body": {'detail': 'Films not found'}}
-        )
+                {'status': 404, "body": {'detail': 'Films not found'}},
+                film_collections
+        ),
+                (
+                # вывести только N записей
+                {'query': 'The Star', "per_page": 1, "page":1}, # BUG если не указать page код падает.
+                {'status': 200, 'length': 1},
+                film_collections
+        ),
     ]
 )
 @pytest.mark.asyncio
-# async def test_search(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
-async def test_search(make_get_request, es_write_data, query_data: dict, expected_answer: dict):
-
-    # 1. Генерируем данные для ES
-    es_data = [
-        {
-            "id": str(uuid.uuid4()),
-            "imdb_rating": 8.5,
-            "genres": ["Action", "Sci-Fi"],
-            "title": "Star",
-            "description": "New World",
-            "directors": [{"id": "a5a8f573-3cee-4ccc-8a2b-91cb9f55250a", "name": "George Lucas"}],
-            "actors": [
-                {"id": "ef86b8ff-3c82-4d31-ad8e-72b69f4e3f95", "name": "Ann"},
-                {"id": "fb111f22-121e-44a7-b78f-b19191810fbf", "name": "Bob"},
-            ],
-            "writers": [
-                {"id": "caf76c67-c0fe-477e-8766-3ab3ff2574b5", "name": "Ben"},
-                {"id": "b45bd7bc-2e16-46d5-b125-983d356768c6", "name": "Howard"},
-            ],
-            "directors_names": ["George Lucas"],
-            "actors_names": ["Ann", "Bob"],
-            "writers_names": ["Ben", "Howard"],
-            # "created_at": datetime.datetime.now().isoformat(),
-            # "updated_at": datetime.datetime.now().isoformat(),
-        }
-        for _ in range(60)
-    ]
+async def test_search(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
 
     bulk_query: list[dict] = []
     for row in es_data:
@@ -58,13 +56,12 @@ async def test_search(make_get_request, es_write_data, query_data: dict, expecte
         bulk_query.append(data)
 
     # 2. Загружаем данные в ES
-    await es_write_data(bulk_query)
+    await es_write_data(bulk_query, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING )
 
     # ждем обработки данных elastic
     await asyncio.sleep(1)
 
     # 3. Запрашиваем данные из ES по API
-    # query_data = {"query": "The Star"}
     url = f"{test_settings.SERVICE_URL}/api/v1/films/search/"
     body, headers, status = await make_get_request(url, query_data)
 
