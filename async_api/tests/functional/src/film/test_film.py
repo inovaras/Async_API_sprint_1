@@ -7,23 +7,24 @@ from testdata.data.film import film_collections, one_film
 
 """
 все граничные случаи по валидации данных;
-поиск конкретного фильма;
+поиск конкретного фильма;+
 вывести все фильмы;
 поиск с учётом кеша в Redis.
 """
-
-
-@pytest.mark.asyncio
-async def test_new_test():
-    return 1
 
 @pytest.mark.parametrize(
     'query_data, expected_answer, es_data',
     [
         (
-                # вывести все фильмы;
+                # вывести фильмы без указания параметров;
                 {},
                 {'status': 200, 'length': 50},
+                film_collections
+        ),
+                (
+                # вывести все фильмы;
+                {"per_page":60},
+                {'status': 200, 'length': 60},
                 film_collections
         ),
     ]

@@ -10,6 +10,8 @@ RUN pip install --upgrade pip \
 
 COPY configs /configs
 COPY ./async_api/src .
+COPY ./async_api/tests /async_api/tests
+
 
 EXPOSE 8080
 

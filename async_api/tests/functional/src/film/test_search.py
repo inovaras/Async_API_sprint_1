@@ -23,7 +23,6 @@ File "/async_api/src/services/base.py", line 103, in _get_correct_params
     query_params["offset"] = (query_params["page"] - 1) * query_params["per_page"]
 """
 
-
 @pytest.mark.parametrize(
     'query_data, expected_answer, es_data',
     [
@@ -40,7 +39,7 @@ File "/async_api/src/services/base.py", line 103, in _get_correct_params
         ),
                 (
                 # вывести только N записей
-                {'query': 'The Star', "per_page": 1, "page":1}, # BUG если не указать page код падает.
+                {'query': 'The Star', "per_page": 1}, # BUG если не указать page код падает.
                 {'status': 200, 'length': 1},
                 film_collections
         ),
@@ -62,7 +61,7 @@ async def test_search(make_get_request, es_write_data, es_data: list[dict], quer
     await asyncio.sleep(1)
 
     # 3. Запрашиваем данные из ES по API
-    url = f"{test_settings.SERVICE_URL}/api/v1/films/search/"
+    url = f"{test_settings.SERVICE_URL}/api/v1/films/search"
     body, headers, status = await make_get_request(url, query_data)
 
     # 4. Проверяем ответ

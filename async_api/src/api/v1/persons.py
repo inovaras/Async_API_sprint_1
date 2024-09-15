@@ -31,25 +31,9 @@ async def person_to_dto(person: Person, film_service: FilmService) -> PersonDeta
     return dto
 
 
-@router.get(
-    "/{person_id}",
-    response_model=PersonDetailsDTO,
-    description="Детальная информация по персоне.",
-)
-async def person_details(
-    person_id: str,
-    person_service: BaseService = Depends(get_person_service),
-    film_service: BaseService = Depends(get_film_service),
-) -> PersonDetailsDTO:
-    person = await person_service.get_by_id(person_id)
-    if not person:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Person not found")
-
-    return await person_to_dto(person=person, film_service=film_service)
-
 
 @router.get(
-    "/search/",
+    "/search",
     response_model=List[PersonDetailsDTO],
     description="Точный фразовый поиск персон по ФИО.",
 )
@@ -74,6 +58,26 @@ async def search_by_persons(
     await update_headers(response, pagination, result)
 
     return result
+
+
+@router.get(
+    "/{person_id}",
+    response_model=PersonDetailsDTO,
+    description="Детальная информация по персоне.",
+)
+async def person_details(
+    person_id: str,
+    person_service: BaseService = Depends(get_person_service),
+    film_service: BaseService = Depends(get_film_service),
+) -> PersonDetailsDTO:
+    person = await person_service.get_by_id(person_id)
+    if not person:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Person not found")
+
+    return await person_to_dto(person=person, film_service=film_service)
+
+
+
 
 
 @router.get(
