@@ -1,3 +1,4 @@
+import asyncio
 import time
 from elasticsearch import AsyncElasticsearch, Elasticsearch
 
@@ -17,15 +18,15 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-def wait_elastic():
+async def wait_elastic():
     while True:
         try:
             try:
-                client = Elasticsearch(hosts="http://172.19.0.4:9200", verify_certs=False)
+                client = AsyncElasticsearch(hosts="http://172.19.0.4:9200", verify_certs=False)
             except Exception as exc:
                 logging.info("TRASH")
                 time.sleep(1)
-            if client.ping():
+            if await client.ping():
                 break
 
         except Exception as e:
@@ -34,4 +35,5 @@ def wait_elastic():
 
 
 if __name__ == '__main__':
-    wait_elastic()
+    asyncio.get_event_loop().run_until_complete(wait_elastic())
+    # asyncio.run(wait_elastic())
