@@ -84,10 +84,16 @@ class BaseService(ABC):
                         value = int(value)
                     query_params[key] = value
 
-        if not query_params.get("page") and not query_params.get("per_page"):
+        if not query_params.get("page"):
             pagination = get_pagination_params()
             query_params.update(
-                {"page": pagination["page"].get_default(), "per_page": pagination["per_page"].get_default()}
+                {"page": pagination["page"].get_default()}
+            )
+
+        if not query_params.get("per_page"):
+            pagination = get_pagination_params()
+            query_params.update(
+                {"per_page": pagination["per_page"].get_default()}
             )
 
         sort = query_params.get('sort_by')
@@ -154,7 +160,7 @@ class BaseService(ABC):
                         ]
                     }
                 }
-        elif url.path == "/api/v1/films/search/":
+        elif url.path == "/api/v1/films/search":
             search_query = {
                 "multi_match": {
                     "query": query,
@@ -162,9 +168,9 @@ class BaseService(ABC):
                     "fields": ["title", "description"],
                 }
             }
-        elif url.path == "/api/v1/genres/":
+        elif url.path == "/api/v1/genres":
             search_query = None
-        elif url.path == "/api/v1/persons/search/":
+        elif url.path == "/api/v1/persons/search":
             search_query = {"match_phrase": {"full_name": {"query": query}}}
         elif "/api/v1/persons/" in url.path and "film" in url.path:
             person_id = params.get("person_id")

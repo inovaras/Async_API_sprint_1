@@ -18,6 +18,29 @@ from utils.utils import (
 router = APIRouter()
 
 
+@router.get(
+    "/search",
+    response_model=List[FilmDTO],
+    description="Нечеткий поиск фильмов по заголовку или описанию.",
+)
+async def search_by_films(
+    request: Request,
+    response: Response,
+    query: FilmsFilterQueryParamsSearch = Depends(),
+    pagination: dict = Depends(get_pagination_params),
+    film_service: BaseService = Depends(get_film_service),
+) -> List[FilmDTO]:
+    """query забираю из request.url. Не удалять!"""
+    films = await film_service.get_objects(request=request)
+    if not films:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Films not found")
+
+    await update_headers(response, pagination, films)
+
+    return films
+
+
+
 # Внедряем FilmService с помощью Depends(get_film_service)
 @router.get(
     "/{film_id}",
@@ -46,26 +69,6 @@ async def film_details(
     return film
 
 
-@router.get(
-    "/search/",
-    response_model=List[FilmDTO],
-    description="Нечеткий поиск фильмов по заголовку или описанию.",
-)
-async def search_by_films(
-    request: Request,
-    response: Response,
-    query: FilmsFilterQueryParamsSearch = Depends(),
-    pagination: dict = Depends(get_pagination_params),
-    film_service: BaseService = Depends(get_film_service),
-) -> List[FilmDTO]:
-    """query забираю из request.url. Не удалять!"""
-    films = await film_service.get_objects(request=request)
-    if not films:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Films not found")
-
-    await update_headers(response, pagination, films)
-
-    return films
 
 
 @router.get(

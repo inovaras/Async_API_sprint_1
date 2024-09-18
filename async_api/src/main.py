@@ -12,6 +12,7 @@ from redis.asyncio import Redis
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # TODO наличие соединения не проверяется
     redis.redis = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
     elastic.es = AsyncElasticsearch(hosts=[f"{settings.ELASTIC_SCHEMA}{settings.ELASTICSEARCH_HOST}:{settings.ELASTICSEARCH_PORT}"])
     print("redis connection successful")
