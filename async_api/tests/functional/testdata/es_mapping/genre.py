@@ -24,5 +24,11 @@ mapping = {
             },
         },
     },
-    "mappings": {"dynamic": "strict", "properties": {"id": {"type": "keyword"}, "name": {"type": "keyword"}}},
+    "mappings": {
+        "dynamic": "strict",
+        "properties": {
+            "id": {"type": "keyword"},
+            "name": {"type": "keyword"}
+            }
+        },
 }

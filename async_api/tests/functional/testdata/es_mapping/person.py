@@ -29,9 +29,7 @@ mapping = {
         "properties": {
             "id": {"type": "keyword"},
             "full_name": {"type": "text", "analyzer": "standard"},
-            "movies": {
-                "type": "keyword",
-            },
-        },
+            "movies": {"type": "keyword"}
+        }
     },
 }
