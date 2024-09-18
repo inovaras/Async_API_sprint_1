@@ -54,7 +54,7 @@ async def test_film(
     [
         (
             # поиск конкретного фильма;
-            {'filter_by': 'title', 'query': "Star"},
+            {'film_id': 'my_uuid', 'filter_by': 'title', 'query': "Star"},
             {'status': 200},
             one_film,
             [{"id": "1", "name": "Action"}],
@@ -75,7 +75,7 @@ async def test_get_film_by_id(
     await es_write_data(es_genre_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
     await asyncio.sleep(1)
 
-    url = f"{test_settings.SERVICE_URL}/api/v1/films/my_uuid"
+    url = f"{test_settings.SERVICE_URL}/api/v1/films/{query_data['film_id']}"
     body, headers, status = await make_get_request(url, query_data)
 
     await es_remove_data(es_film_data, index=test_settings.ES_FILM_INDEX)
@@ -93,7 +93,7 @@ async def test_get_film_by_id(
     [
         (
             # поиск конкретного фильма;
-            {'filter_by': 'title', 'query': "Star"},
+            {'film_id': 'my_uuid','filter_by': 'title', 'query': "Star"},
             {'status': 200},
             one_film,
             [{"id": "1", "name": "Action"}],
@@ -115,7 +115,7 @@ async def test_cache_by_id(
     await es_write_data(es_genre_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
     await asyncio.sleep(1)
 
-    url = f"{test_settings.SERVICE_URL}/api/v1/films/my_uuid"
+    url = f"{test_settings.SERVICE_URL}/api/v1/films/{query_data['film_id']}"
     body, headers, status = await make_get_request(url, query_data)
 
     await es_remove_data(es_film_data, index=test_settings.ES_FILM_INDEX)

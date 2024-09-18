@@ -1,20 +1,20 @@
-import time
-from redis import Redis
-# from settings import test_settings
+import asyncio
 import logging
+import time
 
-logging.basicConfig(level=logging.DEBUG)
+from redis.asyncio import Redis
 
-def wait_redis():
-    redis_client=Redis(host="http://172.19.0.5", port=6379)
+# если хочешь увидеть неудачные попытки подключения - раскомментируй логирование
+# logging.basicConfig(level=logging.DEBUG)
+
+
+async def wait_redis():
+    redis_client = Redis(host="172.19.0.5", port=6379)
     while True:
-        try:
-            if redis_client.ping():
-                break
+        if await redis_client.ping():
+            break
+        time.sleep(3)
 
-        except Exception:
-            logging.info("NO REDIS CONNECT. w8 1 sec")
-            time.sleep(1)
 
-if __name__=='__main__':
-    wait_redis()
+if __name__ == '__main__':
+    asyncio.run(wait_redis())

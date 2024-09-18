@@ -18,25 +18,23 @@ from testdata.data.genre import one_genre, genres
     [
         (
             # поиск конкретного жанра;
-                {'genre_id':"my_uuid"},
-                {'status': 200},
-                one_genre
+            {'genre_id': "my_uuid"},
+            {'status': 200},
+            one_genre,
         ),
-    ]
+    ],
 )
 @pytest.mark.asyncio
-async def test_get_genre_by_id(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
-    genres: list[dict] = []
-    for row in es_data:
-        data = {"_index": test_settings.ES_GENRE_INDEX, "_id": row["id"]}
-        data.update({"_source": row})
-        genres.append(data)
-
-    # await es_write_data(bulk_query, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING )
-    await es_write_data(genres, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
-
+async def test_get_genre_by_id(
+    es_remove_data, make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict
+):
+    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
     await asyncio.sleep(1)
-    url = f"{test_settings.SERVICE_URL}/api/v1/genres/my_uuid"
+
+    url = f"{test_settings.SERVICE_URL}/api/v1/genres/{query_data['genre_id']}"
+    body, headers, status = await make_get_request(url, query_data)
+
+    await es_remove_data(es_data, index=test_settings.ES_GENRE_INDEX)
     body, headers, status = await make_get_request(url, query_data)
 
     assert status == expected_answer['status']
@@ -49,23 +47,23 @@ async def test_get_genre_by_id(make_get_request, es_write_data, es_data: list[di
     [
         (
             # поиск жанров;
-                {}, {'status': 200, 'length': 3}, genres
+            {},
+            {'status': 200, 'length': 3},
+            genres,
         ),
-    ]
+    ],
 )
 @pytest.mark.asyncio
-async def test_get_genres(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
-    genres: list[dict] = []
-    for row in es_data:
-        data = {"_index": test_settings.ES_GENRE_INDEX, "_id": row["id"]}
-        data.update({"_source": row})
-        genres.append(data)
+async def test_get_genres(
+    es_remove_data, make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict
+):
+    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
+    await asyncio.sleep(1)
 
-    # await es_write_data(bulk_query, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING )
-    await es_write_data(genres, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
-
-    await asyncio.sleep(2)
     url = f"{test_settings.SERVICE_URL}/api/v1/genres"
+    body, headers, status = await make_get_request(url, query_data)
+
+    await es_remove_data(es_data, index=test_settings.ES_GENRE_INDEX)
     body, headers, status = await make_get_request(url, query_data)
 
     assert status == expected_answer['status']

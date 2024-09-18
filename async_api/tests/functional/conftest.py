@@ -27,8 +27,8 @@ async def redis_client():
     yield
     redis = Redis(host=test_settings.REDIS_HOST, port=test_settings.REDIS_PORT)
     await redis.flushall()
-    await redis.close()
-    print("REDIS CLEANED")
+    await redis.aclose()
+
 
 @pytest_asyncio.fixture(name='es_write_data')
 def es_write_data(es_client: AsyncElasticsearch):
@@ -55,6 +55,7 @@ def es_remove_data(es_client: AsyncElasticsearch):
     async def inner(data: list[dict], index: str):
         for info in data:
             await es_client.delete(index=index, id=info["id"])
+
     return inner
 
 

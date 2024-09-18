@@ -3,108 +3,129 @@ import asyncio
 import pytest
 from settings import test_settings
 
-from testdata.data.person import  one_person
+from testdata.data.person import one_person
+from testdata.data.film import one_film, film_collections
 
 """
 все граничные случаи по валидации данных;
-поиск конкретной персоны;
-вывести все фильмы, в которых участвовала персона;
-поиск с учётом кеша в Redis.
+поиск конкретной персоны;+
+вывести все фильмы, в которых участвовала персона;+
+поиск с учётом кеша в Redis.+
 """
 
 
 @pytest.mark.parametrize(
-    'query_data, expected_answer, es_data',
+    'query_data, expected_answer, es_film_data, es_person_data',
     [
         (
             # поиск конкретной персоны;
-            {"id": "my_uuid"},
-            {'status': 200},
-            one_person
+            {"person_id": "person_uuid"},
+            {'status': 200, "person_id": "person_uuid"},
+            one_film,
+            one_person,
         ),
-    ]
+    ],
 )
 @pytest.mark.asyncio
-async def test_get_person_by_id(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
-    persons: list[dict] = []
-    for row in es_data:
-        data = {"_index": test_settings.ES_PERSON_INDEX, "_id": row["id"]}
-        data.update({"_source": row})
-        persons.append(data)
-
-    await es_write_data(persons, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING)
-
+async def test_get_person_by_id(
+    es_remove_data,
+    make_get_request,
+    es_write_data,
+    es_film_data: list[dict],
+    es_person_data: list[dict],
+    query_data: dict,
+    expected_answer: dict,
+):
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+    )
     await asyncio.sleep(1)
 
-    url = f"{test_settings.SERVICE_URL}/api/v1/persons/my_uuid"
-    body, headers, status = await make_get_request(url, {})
+    url = f"{test_settings.SERVICE_URL}/api/v1/persons/{query_data['person_id']}"
+    body, headers, status = await make_get_request(url, query_data)
 
+    await es_remove_data(es_film_data, index=test_settings.ES_FILM_INDEX)
+    await es_remove_data(es_person_data, index=test_settings.ES_PERSON_INDEX)
+    body, headers, status = await make_get_request(url, query_data)
 
     assert status == expected_answer['status']
-    assert body['id'] == expected_answer['id']
-    # assert body['id'] == expected_answer['id']
-    # assert body['full_name'] == expected_answer['full_name']
-
-# @pytest.mark.parametrize(
-#     'person_id, query_data, expected_answer, es_data',
-#     [
-#         (
-#             {'person_id'},
-#             {'page': 1, 'per_page': 50},
-#             {'status': 200, 'count': 1, 'id': 'my_uuid', 'title': 'film1'},
-#             [one_person]
-#         ),
-#     ]
-# )
-# @pytest.mark.asyncio
-# async def test_get_person_films(make_get_request, es_write_data, es_data: list[dict], person_id: str, query_data: dict, expected_answer: dict):
-#     persons: list[dict] = []
-#     for row in es_data:
-#         data = {"_index": test_settings.ES_FILM_INDEX, "_id": row["id"]}
-#         data.update({"_source": row})
-#         persons.append(data)
-
-#     await es_write_data(persons, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
-
-#     await asyncio.sleep(1)
-
-#     url = f"{test_settings.SERVICE_URL}/api/v1/persons/{person_id}/film"
-#     body, headers, status = await make_get_request(url, query_data)
-
-#     assert status == expected_answer['status']
-#     assert type(body) == list
-#     assert len(body) == expected_answer['count']
-#     assert body[0]['id'] == expected_answer['id']
-#     assert body[0]['title'] == expected_answer['title']
+    assert body['id'] == expected_answer['person_id']
 
 
-# @pytest.mark.parametrize(
-#     'query_data, expected_answer, es_data',
-#     [
-#         (
-#             {'query': 'Star', 'page': 1, 'per_page': 50},
-#             {'status': 200, 'count': 1, 'id': 'person_uuid', 'title': 'Some Title'},
-#             one_person
-#         ),
-#     ]
-# )
-# @pytest.mark.asyncio
-# async def test_search_person(make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
-#     bulk_query: list[dict] = []
-#     for row in es_data:
-#         data = {"_index": test_settings.ES_PERSON_INDEX, "_id": row["id"]}
-#         data.update({"_source": row})
-#         bulk_query.append(data)
+@pytest.mark.parametrize(
+    'query_data, expected_answer, es_film_data,es_person_data',
+    [
+        (
+            {"person_id": "person_uuid", 'page': 1, 'per_page': len(film_collections)},
+            {'status': 200, 'count': len(film_collections)},
+            film_collections,
+            one_person,
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_get_person_films(
+    es_remove_data,
+    make_get_request,
+    es_write_data,
+    es_film_data: list[dict],
+    es_person_data: list[dict],
+    query_data: dict,
+    expected_answer: dict,
+):
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+    )
+    await asyncio.sleep(1)
 
-#     await es_write_data(bulk_query, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING)
+    url = f"{test_settings.SERVICE_URL}/api/v1/persons/{query_data['person_id']}/film"
+    body, headers, status = await make_get_request(url, query_data)
 
-#     await asyncio.sleep(1)
+    await es_remove_data(es_film_data, index=test_settings.ES_FILM_INDEX)
+    await es_remove_data(es_person_data, index=test_settings.ES_PERSON_INDEX)
+    body, headers, status = await make_get_request(url, query_data)
 
-#     url = f"{test_settings.SERVICE_URL}/api/v1/persons/search/"
-#     body, headers, status = await make_get_request(url, query_data)
+    assert status == expected_answer['status']
+    assert type(body) == list
+    assert len(body) == expected_answer['count']
 
-#     assert status == expected_answer['status']
-#     assert type(body) == list
-#     assert len(body) == expected_answer['count']
-#     assert body[0]['id'] == expected_answer['id']
-#     assert body[0]['title'] == expected_answer['title']
+
+@pytest.mark.parametrize(
+    'query_data, expected_answer, es_film_data,es_person_data',
+    [
+        (
+            {'query': 'Lucas'},
+            {'status': 200, 'count': 1, 'id': 'person_uuid'},
+            one_film,
+            one_person
+        )
+    ],
+)
+@pytest.mark.asyncio
+async def test_search_person(
+    es_remove_data,
+    make_get_request,
+    es_write_data,
+    es_film_data: list[dict],
+    es_person_data: list[dict],
+    query_data: dict,
+    expected_answer: dict,
+):
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+    )
+    await asyncio.sleep(1)
+
+    url = f"{test_settings.SERVICE_URL}/api/v1/persons/search/"
+    body, headers, status = await make_get_request(url, query_data)
+
+    await es_remove_data(es_film_data, index=test_settings.ES_FILM_INDEX)
+    await es_remove_data(es_person_data, index=test_settings.ES_PERSON_INDEX)
+    body, headers, status = await make_get_request(url, query_data)
+
+    assert status == expected_answer['status']
+    assert type(body) == list
+    assert len(body) == expected_answer['count']

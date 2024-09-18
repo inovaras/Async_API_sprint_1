@@ -10,7 +10,7 @@ film_collections = [
             "genres": ["Action", "Sci-Fi"],
             "title": "Star",
             "description": "New World",
-            "directors": [{"id": "a5a8f573-3cee-4ccc-8a2b-91cb9f55250a", "name": "George Lucas"}],
+            "directors": [{"id": "person_uuid", "name": "George Lucas"}],
             "actors": [
                 {"id": "ef86b8ff-3c82-4d31-ad8e-72b69f4e3f95", "name": "Ann"},
                 {"id": "fb111f22-121e-44a7-b78f-b19191810fbf", "name": "Bob"},
@@ -34,7 +34,7 @@ one_film =                 [
             "genres": ["Action", "Sci-Fi"],
             "title": "SuperStar",
             "description": "New World",
-            "directors": [{"id": "a5a8f573-3cee-4ccc-8a2b-91cb9f55250a", "name": "George Lucas"}],
+            "directors": [{"id": "person_uuid", "name": "George Lucas"}],
             "actors": [
                 {"id": "ef86b8ff-3c82-4d31-ad8e-72b69f4e3f95", "name": "Ann"},
                 {"id": "fb111f22-121e-44a7-b78f-b19191810fbf", "name": "Bob"},
