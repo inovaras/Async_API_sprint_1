@@ -21,11 +21,13 @@ services:
   tests:
     image: fastapi-image
     container_name: tests
+    env_file:
+      - ./.env
     entrypoint: >
       sh -c "pip install -r /async_api/tests/functional/requirements.txt
       && python3 /async_api/tests/functional/utils/wait_for_es.py
       && python3 /async_api/tests/functional/utils/wait_for_redis.py
-      && pytest /async_api/tests/"
+      && pytest /async_api/tests"
     networks:
       test-middle-practicum:
         ipv4_address: 172.19.0.3
