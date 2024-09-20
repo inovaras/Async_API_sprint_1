@@ -1,9 +1,9 @@
 import asyncio
 import uuid
-
 import pytest
-from settings import test_settings
+from http import HTTPStatus
 
+from settings import test_settings
 from testdata.data.film import film_collections
 #  Название теста должно начинаться со слова `test_`
 #  Любой тест с асинхронными вызовами нужно оборачивать декоратором `pytest.mark.asyncio`, который следит за запуском и работой цикла событий.
@@ -22,18 +22,18 @@ from testdata.data.film import film_collections
                 # поиск записи или записей по фразе
                 # {'search': 'The Star'},
                 {'query': 'The Star'},
-                {'status': 200, 'length': 50},
+                {'status': HTTPStatus.OK, 'length': 50},
                 film_collections
         ),
         (       # поиск не существующего фильма
                 {'query': 'Mashed potato'},
-                {'status': 404, "body": {'detail': 'Films not found'}},
+                {'status': HTTPStatus.NOT_FOUND, "body": {'detail': 'Films not found'}},
                 film_collections
         ),
                 (
                 # вывести только N записей
                 {'query': 'The Star', "per_page": 1},
-                {'status': 200, 'length': 1},
+                {'status': HTTPStatus.OK, 'length': 1},
                 film_collections
         ),
     ]

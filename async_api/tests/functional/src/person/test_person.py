@@ -1,8 +1,8 @@
 import asyncio
-
 import pytest
-from settings import test_settings
+from http import HTTPStatus
 
+from settings import test_settings
 from testdata.data.person import one_person
 from testdata.data.film import one_film, film_collections
 
@@ -20,7 +20,7 @@ from testdata.data.film import one_film, film_collections
         (
             # поиск конкретной персоны;
             {"person_id": "person_uuid"},
-            {'status': 200, "person_id": "person_uuid"},
+            {'status': HTTPStatus.OK, "person_id": "person_uuid"},
             one_film,
             one_person,
         ),
@@ -58,7 +58,7 @@ async def test_get_person_by_id(
     [
         (
             {"person_id": "person_uuid", 'page': 1, 'per_page': len(film_collections)},
-            {'status': 200, 'count': len(film_collections)},
+            {'status': HTTPStatus.OK, 'count': len(film_collections)},
             film_collections,
             one_person,
         ),
@@ -97,7 +97,7 @@ async def test_get_person_films(
     [
         (
             {'query': 'Lucas'},
-            {'status': 200, 'count': 1, 'id': 'person_uuid'},
+            {'status': HTTPStatus.OK, 'count': 1, 'id': 'person_uuid'},
             one_film,
             one_person
         )

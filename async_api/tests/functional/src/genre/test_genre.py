@@ -1,8 +1,8 @@
 import asyncio
-
 import pytest
-from settings import test_settings
+from http import HTTPStatus
 
+from settings import test_settings
 from testdata.data.genre import one_genre, genres
 
 """
@@ -19,7 +19,7 @@ from testdata.data.genre import one_genre, genres
         (
             # поиск конкретного жанра;
             {'genre_id': "my_uuid"},
-            {'status': 200},
+            {'status': HTTPStatus.OK},
             one_genre,
         ),
     ],
@@ -48,7 +48,7 @@ async def test_get_genre_by_id(
         (
             # поиск жанров;
             {},
-            {'status': 200, 'length': 3},
+            {'status': HTTPStatus.OK, 'length': 3},
             genres,
         ),
     ],

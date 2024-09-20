@@ -1,6 +1,7 @@
 import asyncio
-
 import pytest
+from http import HTTPStatus
+
 from settings import test_settings
 from testdata.data.film import film_collections, one_film
 
@@ -18,13 +19,13 @@ from testdata.data.film import film_collections, one_film
         (
             # вывести фильмы без указания параметров;
             {},
-            {'status': 200, 'length': 50},
+            {'status': HTTPStatus.OK, 'length': 50},
             film_collections,
         ),
         (
             # вывести все фильмы;
             {"per_page": 60},
-            {'status': 200, 'length': 60},
+            {'status': HTTPStatus.OK, 'length': 60},
             film_collections,
         ),
     ],
@@ -55,7 +56,7 @@ async def test_film(
         (
             # поиск конкретного фильма;
             {'film_id': 'my_uuid', 'filter_by': 'title', 'query': "Star"},
-            {'status': 200},
+            {'status': HTTPStatus.OK},
             one_film,
             [{"id": "1", "name": "Action"}],
         ),
@@ -94,7 +95,7 @@ async def test_get_film_by_id(
         (
             # поиск конкретного фильма;
             {'film_id': 'my_uuid','filter_by': 'title', 'query': "Star"},
-            {'status': 200},
+            {'status': HTTPStatus.OK},
             one_film,
             [{"id": "1", "name": "Action"}],
         ),
