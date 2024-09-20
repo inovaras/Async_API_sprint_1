@@ -11,7 +11,7 @@ async def es_client():
 
 @pytest_asyncio.fixture(name='es_write_data')
 def es_write_data(es_client: AsyncElasticsearch):
-    async def inner(data: list[dict], index: str, mapping: dict):
+    async def inner(data: list[dict], index: str, mapping: dict, refresh: str = "false"):
         if await es_client.indices.exists(index=index):
             await es_client.indices.delete(index=index)
         await es_client.indices.create(index=index, **mapping)
@@ -22,7 +22,7 @@ def es_write_data(es_client: AsyncElasticsearch):
             data_to_es.update({"_source": row})
             bulk_data.append(data_to_es)
 
-        updated, errors = await async_bulk(client=es_client, actions=bulk_data)
+        updated, errors = await async_bulk(client=es_client, actions=bulk_data, refresh=refresh)
         if errors:
             raise Exception('Ошибка записи данных в Elasticsearch')
 

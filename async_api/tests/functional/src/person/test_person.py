@@ -36,11 +36,11 @@ async def test_get_person_by_id(
     query_data: dict,
     expected_answer: dict,
 ):
-    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING, refresh="wait_for")
     await es_write_data(
-        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING, refresh="wait_for"
     )
-    await asyncio.sleep(1)
+    # await asyncio.sleep(1)
 
     url = f"{test_settings.SERVICE_URL}/api/v1/persons/{query_data['person_id']}"
     body, headers, status = await make_get_request(url, query_data)
@@ -74,11 +74,11 @@ async def test_get_person_films(
     query_data: dict,
     expected_answer: dict,
 ):
-    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING, refresh="wait_for")
     await es_write_data(
-        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING, refresh="wait_for"
     )
-    await asyncio.sleep(1)
+    # await asyncio.sleep(1)
 
     url = f"{test_settings.SERVICE_URL}/api/v1/persons/{query_data['person_id']}/film"
     body, headers, status = await make_get_request(url, query_data)
@@ -113,11 +113,11 @@ async def test_search_person(
     query_data: dict,
     expected_answer: dict,
 ):
-    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING)
+    await es_write_data(es_film_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING, refresh="wait_for")
     await es_write_data(
-        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING
+        es_person_data, index=test_settings.ES_PERSON_INDEX, mapping=test_settings.ES_PERSON_INDEX_MAPPING, refresh="wait_for"
     )
-    await asyncio.sleep(1)
+    # await asyncio.sleep(1)
 
     url = f"{test_settings.SERVICE_URL}/api/v1/persons/search/"
     body, headers, status = await make_get_request(url, query_data)

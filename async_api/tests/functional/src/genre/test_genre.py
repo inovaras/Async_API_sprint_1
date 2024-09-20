@@ -28,8 +28,8 @@ from testdata.data.genre import one_genre, genres
 async def test_get_genre_by_id(
     es_remove_data, make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict
 ):
-    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
-    await asyncio.sleep(1)
+    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING, refresh="wait_for")
+    # await asyncio.sleep(1)
 
     url = f"{test_settings.SERVICE_URL}/api/v1/genres/{query_data['genre_id']}"
     body, headers, status = await make_get_request(url, query_data)
@@ -57,8 +57,8 @@ async def test_get_genre_by_id(
 async def test_get_genres(
     es_remove_data, make_get_request, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict
 ):
-    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING)
-    await asyncio.sleep(1)
+    await es_write_data(es_data, index=test_settings.ES_GENRE_INDEX, mapping=test_settings.ES_GENRE_INDEX_MAPPING, refresh="wait_for")
+    # await asyncio.sleep(1)
 
     url = f"{test_settings.SERVICE_URL}/api/v1/genres"
     body, headers, status = await make_get_request(url, query_data)

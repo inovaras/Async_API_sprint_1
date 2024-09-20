@@ -41,9 +41,9 @@ from testdata.data.film import film_collections
 @pytest.mark.asyncio
 async def test_search(make_get_request,es_remove_data, es_write_data, es_data: list[dict], query_data: dict, expected_answer: dict):
     # 2. Загружаем данные в ES
-    await es_write_data(es_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING )
-    # ждем обработки данных elastic
-    await asyncio.sleep(1)
+    await es_write_data(es_data, index=test_settings.ES_FILM_INDEX, mapping=test_settings.ES_FILM_INDEX_MAPPING, refresh="wait_for")
+    # await asyncio.sleep(1) # ждем обработки данных elastic
+
     # 3. Запрашиваем данные из ES по API
     url = f"{test_settings.SERVICE_URL}/api/v1/films/search"
     body, headers, status = await make_get_request(url, query_data)
