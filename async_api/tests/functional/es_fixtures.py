@@ -11,7 +11,7 @@ async def es_client():
 
 @pytest_asyncio.fixture(name='es_write_data')
 def es_write_data(es_client: AsyncElasticsearch):
-    async def inner(data: list[dict], index: str, mapping: dict, refresh: str = "false"):
+    async def inner(data: list[dict], index: str, mapping: dict, refresh: str = "wait_for"):
         if await es_client.indices.exists(index=index):
             await es_client.indices.delete(index=index)
         await es_client.indices.create(index=index, **mapping)
